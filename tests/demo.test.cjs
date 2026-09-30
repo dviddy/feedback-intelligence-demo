@@ -54,7 +54,21 @@ test('1,200 synthetic records cover exactly six consecutive months', () => {
   assert.equal(crypto.createHash('sha256').update(JSON.stringify(records.map(({ text, ...rest }) => rest))).digest('hex'),
     '0a9625fd5c279674c82bda850fa706e6e9a0f567e88c97b7782206092cb164e4');
   assert.equal(crypto.createHash('sha256').update(JSON.stringify(records)).digest('hex'),
-    '97afc09ef455cb7e7c3f26da40d7b284f8ff4a936f207e8457fb60e20ca18b1a');
+    'fc60096e243ee6dd678590a250b549ba8d170f3fc51a42c1c754c42a13c3cbea');
+});
+test('results present visual intelligence before experience intelligence', () => {
+  const { dom, document } = browser();
+  const order = [...document.querySelectorAll('#resultsExperience > section')]
+    .filter(section => section.matches('.summary-section, .visual-section, .intelligence-section, .feedback-section'))
+    .map(section => section.className);
+  assert.deepEqual(order, ['summary-section', 'visual-section', 'intelligence-section', 'feedback-section']);
+  assert.match(document.querySelector('.visual-section .eyebrow').textContent, /02/);
+  assert.match(document.querySelector('.intelligence-section .eyebrow').textContent, /03/);
+  assert.equal(document.getElementById('visualPanel').hidden, false);
+  assert.equal(document.getElementById('visualToggle').getAttribute('aria-expanded'), 'true');
+  document.querySelector('#trendsHeading + p + button').click();
+  assert.equal(document.getElementById('trendsPanel').hidden, false);
+  dom.window.close();
 });
 test('start experience is the initial view, demo load reveals results, and New Analysis resets it', () => {
   const { dom, document, requests } = browser({ load: false });
@@ -75,7 +89,16 @@ test('start experience is the initial view, demo load reveals results, and New A
   for (const section of ['Executive Summary', 'Experience Intelligence', 'Visual Intelligence', 'Detailed Feedback'])
     assert.ok(results.textContent.includes(section));
   assert.match(document.getElementById('summaryMetrics').textContent, /1,200/);
+  assert.equal(document.getElementById('visualPanel').hidden, false);
+  assert.equal(document.getElementById('visualToggle').textContent, 'Hide visuals');
+  assert.equal(document.getElementById('visualCanvas').textContent.includes('Sentiment Mix'), true);
+  assert.equal(document.getElementById('trendsPanel').hidden, true);
+  assert.equal(document.getElementById('feedbackPanel').hidden, true);
   document.getElementById('visualToggle').click();
+  assert.equal(document.getElementById('visualPanel').hidden, true);
+  assert.equal(document.getElementById('visualToggle').getAttribute('aria-expanded'), 'false');
+  document.getElementById('visualToggle').click();
+  assert.equal(document.getElementById('visualPanel').hidden, false);
   document.getElementById('feedbackToggle').click();
   document.getElementById('newAnalysisButton').click();
   assert.equal(start.hidden, false);
@@ -85,17 +108,26 @@ test('start experience is the initial view, demo load reveals results, and New A
   assert.equal(document.querySelectorAll('#feedbackList .feedback-card').length, 0);
   document.getElementById('loadDemoButton').click();
   assert.equal(results.hidden, false);
+  assert.equal(document.getElementById('visualPanel').hidden, false);
+  assert.equal(document.getElementById('visualToggle').getAttribute('aria-expanded'), 'true');
   assert.deepEqual(requests, []);
   dom.window.close();
 });
 test('synthetic comments vary by trend, sentiment, length and assisted destination without duplicates', () => {
   const firstSentence = text => text.match(/^[^.!?]+[.!?]/)?.[0] || text;
   const firstWords = text => text.split(/\s+/).slice(0, 10).join(' ');
+  const lastSentence = text => text.match(/[^.!?]+[.!?]\s*$/)?.[0]?.trim() || text;
+  const lastWords = text => text.split(/\s+/).slice(-10).join(' ');
   const beforeLast = text => text.replace(/\s+[^.!?]+[.!?]$/, '');
   const maxReuse = values => Math.max(...Object.values(values.reduce((map, value) => {
     map[value] = (map[value] || 0) + 1; return map;
   }, {})));
   assert.equal(new Set(records.map(row => row.text)).size, records.length);
+  assert.ok(maxReuse(records.map(row => firstSentence(row.text))) <= 10);
+  assert.ok(maxReuse(records.map(row => firstWords(row.text))) <= 10);
+  assert.ok(maxReuse(records.map(row => lastSentence(row.text))) <= 10);
+  assert.ok(maxReuse(records.map(row => lastWords(row.text))) <= 10);
+  assert.ok(records.every(row => !row.text.includes('A clearer next step would help.')));
   const groups = new Map();
   for (const row of records) {
     const key = row.trend || `General ${row.sentiment}`;
@@ -236,7 +268,7 @@ test('demo renders compact executive modules and interactions without API calls'
 });
 test('public file scope excludes private backend, credentials and provider calls', () => {
   const files = ['index.html','style.css','demo.js','data/demo-data.js','data/recurring-language.js',
-    'scripts/generate-data.mjs','scripts/voice-library.mjs','README.md'];
+    'scripts/generate-data.mjs','scripts/voice-library.mjs','scripts/voice-endings.mjs','README.md'];
   for (const file of files) {
     const text = read(file);
     assert.ok(!/sk-[A-Za-z0-9_-]{20,}|OPENAI_API_KEY|BEGIN PRIVATE KEY|api\.openai\.com|localhost:\d+|\/Users\/David\//i.test(text), file);
@@ -342,7 +374,6 @@ test('Recurring Language themes reuse semantic trend populations and exact phras
 });
 test('theme and phrase drill-downs use their separate evidence populations', () => {
   const { dom, document, requests } = browser();
-  document.getElementById('visualToggle').click();
   document.querySelector('[data-visual="phrases"]').click();
   assert.match(document.getElementById('visualCanvas').textContent, /How are customers describing recurring experiences/);
   assert.equal(document.querySelectorAll('#visualCanvas .language-row').length, 21);
@@ -371,7 +402,11 @@ test('theme and phrase drill-downs use their separate evidence populations', () 
 test('visual drill-down uses one shared, paginated evidence panel', () => {
   const { dom, document, requests } = browser();
   const visual = document.getElementById('visualPanel');
+  assert.equal(visual.hidden, false);
+  assert.equal(document.getElementById('visualToggle').getAttribute('aria-expanded'), 'true');
+  document.getElementById('visualToggle').click();
   assert.equal(visual.hidden, true);
+  assert.equal(document.getElementById('visualToggle').getAttribute('aria-expanded'), 'false');
   document.getElementById('visualToggle').click();
   assert.equal(visual.hidden, false);
   assert.equal(document.getElementById('visualToggle').getAttribute('aria-expanded'), 'true');
@@ -408,7 +443,6 @@ test('visual drill-down uses one shared, paginated evidence panel', () => {
 });
 test('movement, migration and phrase selections preserve their evidence basis', () => {
   const { dom, document } = browser();
-  document.getElementById('visualToggle').click();
   document.querySelector('[data-visual="movement"]').click();
   assert.ok(document.getElementById('visualCanvas').textContent.includes('Trend Movement'));
   document.querySelector('#visualCanvas .chart-more').click();
@@ -464,7 +498,6 @@ test('existing trend, emerging, journey and detailed feedback share exact record
 });
 test('interactive charts use native buttons, explicit labels and visible focus styling', () => {
   const { dom, document } = browser();
-  document.getElementById('visualToggle').click();
   for (const view of document.querySelectorAll('[data-visual]')) {
     assert.equal(view.tagName, 'BUTTON');
     assert.ok(view.hasAttribute('aria-pressed'));

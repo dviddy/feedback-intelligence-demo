@@ -1,5 +1,6 @@
-// Authored synthetic customer voices. The generator combines independent openings and
-// follow-ups deterministically; these are demonstration comments, never customer data.
+// Authored synthetic customer voices. Openings and topic-specific endings are combined
+// deterministically; these are demonstration comments, never customer data.
+import { issueEndings, generalEndings, assistedEndings } from './voice-endings.mjs';
 export const issueOpenings = {
   'Login Failure': [
     "I couldn't log in this morning, even with the password I used yesterday.",
@@ -159,7 +160,19 @@ const general = {
     'I found the information I needed quickly.', 'The representative listened and resolved my question.',
     'I liked getting confirmation before finishing.', 'The process worked smoothly from beginning to end.',
     'I was able to handle this on my own.', 'The information arrived at the right time.',
-    'The account update was clear and easy to follow.', 'I knew exactly what would happen after submitting.'
+    'The account update was clear and easy to follow.', 'I knew exactly what would happen after submitting.',
+    'I got through the account task sooner than I expected.', 'The explanation answered the question I had brought in.',
+    'I was able to check the result without making a call.', 'The response arrived while I was still working on it.',
+    'I found the right information on my first try.', 'It was simple to confirm the request had been handled.',
+    'The steps were short enough to complete during a break.', 'I knew where things stood at each point.',
+    'I appreciated the prompt follow-up.', 'The service was easy to use today.',
+    'My question was resolved in one conversation.', 'I could see the change reflected in the account.',
+    'The directions were practical and easy to follow.', 'I was pleased to get a clear answer.',
+    'I finished the request without any surprises.', 'The update gave me confidence to move ahead.',
+    'I did not have to chase down a confirmation.', 'The outcome matched what I was told to expect.',
+    'I could manage the task without a second visit.', 'The details were presented in a way I understood.',
+    'I was able to make my decision promptly.', 'The interaction felt organized from start to finish.',
+    'I got the information before I needed to make another choice.', 'The account status was easy to verify afterward.'
   ],
   Neutral: [
     'I completed the request, though I had to look around for the next step.', 'The information was there, but it took some reading to find it.',
@@ -170,7 +183,19 @@ const general = {
     'I found the feature eventually and would make it easier to locate.', 'The response covered the basics but not my specific situation.',
     'Everything appears correct so far; I am waiting for the final notice.', 'The process was acceptable, just less direct than I expected.',
     'I can see the status now, but I would like more detail.', 'The payment was recorded and I am checking when it will settle.',
-    'I handled the task today and noted a few confusing labels.', 'The instructions were enough to continue, though not especially clear.'
+    'I handled the task today and noted a few confusing labels.', 'The instructions were enough to continue, though not especially clear.',
+    'The request went through, and I am waiting for the final update.',
+    'I found the answer after checking another part of the account.',
+    'The process made sense once I saw the second screen.',
+    'I could finish, though I had expected fewer steps.',
+    'The timing was acceptable but hard to predict.',
+    'I understood the result after looking at the details again.',
+    'The response covered the main point and left a small question.',
+    'I completed it and would prefer a clearer status message.',
+    'The instructions were usable after I read them carefully.',
+    'I got the information but had to piece together the order.',
+    'The task is done; I will confirm the final amount later.',
+    'The service was adequate for what I needed today.'
   ],
   Negative: [
     'I needed a simple answer and ended up making several attempts.', 'The request took longer than expected for a routine task.',
@@ -178,40 +203,6 @@ const general = {
     'The explanation left out the detail I needed.', 'I had to repeat the same question before getting a response.',
     'The process was harder to follow than it should have been.', 'I spent extra time correcting information that was already right.',
     'I left the interaction unsure whether the request was complete.', 'The message did not help me resolve the question.'
-  ]
-};
-
-const followUps = [
-  'A clearer next step would help.', 'I checked again later and still had the same question.',
-  'I would like to know what happened before trying again.', 'This came up while I was handling a routine account task.',
-  'I had set aside only a few minutes for it.', 'The status on the screen did not give me much to go on.',
-  'I tried once more before asking for help.', 'It would help to know whether anything else is needed from me.',
-  'I want to be sure the account is up to date.', 'I could not tell if the request had been recorded.',
-  'I was trying to take care of this before the end of the day.', 'The instructions did not match what I saw on the screen.',
-  'I would appreciate a more specific explanation.', 'I had to stop and come back to it later.',
-  'I am hoping this can be sorted without starting over.', 'A confirmation would make the outcome easier to trust.'
-];
-const extraDetails = [
-  'I need to plan around the timing.', 'There was no obvious way to check progress.',
-  'I kept the confirmation in case I need to follow up.', 'The uncertainty was the most difficult part.',
-  'I want to avoid repeating the same steps tomorrow.', 'It interrupted another task I was trying to finish.',
-  'I am still not sure whether I should wait or act.', 'That small detail would have saved me another call.'
-];
-const assisted = {
-  'Contact Center / Phone': [
-    'I eventually called support to get help.', 'After the digital steps stalled, I phoned the contact center.',
-    'I had to call someone to understand what happened.', 'The online route did not work, so I used the support line.',
-    'I ended up speaking with an agent by phone.', 'I switched to a phone call for the next step.'
-  ],
-  Chat: [
-    'I opened chat to get help.', 'I finally asked an agent in chat.',
-    'The digital flow stopped, so I switched to chat support.', 'I used chat to find out what to do next.',
-    'I ended up messaging support.', 'A chat conversation was the only way I could move forward.'
-  ],
-  Branch: [
-    'I went into a branch for help.', 'I eventually took the question to a branch.',
-    'I had to visit a branch to sort it out.', 'The online steps failed, so I spoke with someone in person.',
-    'I decided to ask at the branch instead.', 'I finished by seeking help at a local branch.'
   ]
 };
 
@@ -223,12 +214,19 @@ export function createComment({ trend, sentiment, migratedTo, index }) {
   const openings = trend ? issueOpenings[trend] : general[sentiment];
   if (!openings) throw new Error(`Missing synthetic voice for ${key}`);
   const parts = [openings[ordinal % openings.length]];
-  const depth = migratedTo ? 1 + (index % 2) : ordinal < openings.length && index % 5 === 0 ? 0 : index % 4 === 0 ? 2 : 1;
-  if (depth >= 1) parts.push(followUps[Math.floor(ordinal / openings.length) % followUps.length]);
-  if (depth >= 2) parts.push(extraDetails[(ordinal + index) % extraDetails.length]);
+  const endings = trend ? issueEndings[trend] : generalEndings[sentiment];
+  if (!endings) throw new Error(`Missing synthetic endings for ${key}`);
+  const cycle = Math.floor(ordinal / openings.length);
+  const [openingStep, cycleStep] = trend ? [7, 11] :
+    sentiment === 'Positive' ? [8, 13] : sentiment === 'Neutral' ? [1, 7] : [1, 1];
+  const endingIndex = ((ordinal % openings.length) * openingStep + cycle * cycleStep) % endings.length;
+  const firstUse = ordinal < openings.length;
+  if (!firstUse || (ordinal + index) % 2 !== 0) parts.push(endings[endingIndex]);
+  if ((ordinal + index) % 7 === 0 && !firstUse)
+    parts.push(endings[(endingIndex + 5) % endings.length]);
   if (migratedTo) {
-    const choices = assisted[migratedTo];
-    parts.push(choices[(ordinal + index) % choices.length]);
+    const choices = assistedEndings[migratedTo];
+    parts.push(choices[(ordinal * 7 + index) % choices.length]);
   }
   return parts.join(' ');
 }

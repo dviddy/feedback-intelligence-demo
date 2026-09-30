@@ -462,6 +462,9 @@ const resultsExperience = document.getElementById('resultsExperience');
 document.getElementById('loadDemoButton').addEventListener('click', () => {
   startExperience.hidden = true;
   resultsExperience.hidden = false;
+  document.getElementById('visualPanel').hidden = false;
+  document.getElementById('visualToggle').setAttribute('aria-expanded', 'true');
+  document.getElementById('visualToggle').textContent = 'Hide visuals';
   document.documentElement.scrollTop = 0;
   document.getElementById('summaryHeading').focus();
 });
