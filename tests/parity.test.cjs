@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const { JSDOM } = require('jsdom');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const scripts = ['data/demo-data.js', 'data/recurring-language.js', 'presentation.js', 'data/journey-provenance.js', 'journey-model.js', 'demo.js'];
+const scripts = ['data/demo-data.js', 'data/recurring-language.js', 'presentation.js', 'data/journey-provenance.js', 'journey-model.js', 'executive-report-pdf.js', 'executive-report-adapter.js', 'demo.js'];
 const context = { window: {} };
 for (const file of scripts.slice(0, 3)) vm.runInNewContext(read(file), context);
 const fixture = context.window.FEEDBACK_DEMO_DATA;
@@ -418,7 +418,9 @@ test('Top 3 and Top 5 select highest distinct current-period experiences before 
   assert.deepEqual(controls.map(row => row.textContent), ['Top 3 Pain Points', 'Top 5 Pain Points', 'Select Your Own']);
   assert.equal(controls[0].getAttribute('aria-pressed'), 'true');
   assert.deepEqual(shown(), Array.from(expected().slice(0, 3), row => row.name));
+  assert.equal(d.querySelector('.pain-point-generate').textContent, 'Generate 2 Journey Maps →');
   controls[1].click(); assert.deepEqual(shown(), Array.from(expected().slice(0, 5), row => row.name));
+  assert.equal(d.querySelector('.pain-point-generate').textContent, 'Generate 3 Journey Maps →');
   for (const row of expected()) assert.equal(row.count, new Set(row.recordIds).size);
   change('periodPreset', '30'); apply();
   assert.equal(d.querySelector('.journey-modes button').getAttribute('aria-pressed'), 'true');
@@ -432,10 +434,10 @@ test('Custom picker includes both statuses, filters locally and enforces five se
   assert.ok(d.querySelector('.pain-point-list').textContent.includes('Emerging Experiences'));
   assert.ok(!d.querySelector('.pain-point-list').textContent.includes('Needs More Evidence'));
   const checkboxes = [...d.querySelectorAll('.pain-point-list input[type=checkbox]')];
-  checkboxes[0].click(); assert.equal(d.querySelector('.pain-point-generate').textContent, 'Generate Journey Map →');
+  checkboxes[0].click(); assert.equal(d.querySelector('.pain-point-generate').textContent, 'Generate 1 Journey Map →');
   for (const checkbox of checkboxes.slice(1, 5)) checkbox.click();
   assert.equal(d.getElementById('journeySelectionCount').textContent, 'Selected: 5 of 5');
-  assert.equal(d.querySelector('.pain-point-generate').textContent, 'Generate Journey Maps →');
+  assert.equal(d.querySelector('.pain-point-generate').textContent, 'Generate 3 Journey Maps →');
   assert.ok(checkboxes.slice(5).every(input => input.disabled));
   checkboxes[5].click(); assert.equal(d.querySelectorAll('.pain-point-list input:checked').length, 5);
   checkboxes[0].click(); assert.equal(checkboxes[5].disabled, false);
@@ -570,5 +572,26 @@ test('Journey stage drilldown contains only authored records for its selected pa
   assert.match(d.getElementById('evidenceContext').textContent, /separate from analysis totals/);
   custom('2026-07-01', '2026-09-30'); assert.equal(d.getElementById('painPointJourneyOutput').children.length, 0);
   assert.equal(d.getElementById('evidencePanel').hidden, true);
+  dom.window.close();
+});
+
+test('Section navigation opens recurring language and exposes the synthetic methodology', () => {
+  const { dom, d, requests } = browser();
+  const recurring = d.querySelector('[data-section-visual="phrases"]');
+  recurring.click();
+  assert.equal(d.getElementById('visualPanel').hidden, false);
+  assert.equal(d.querySelector('[data-visual="phrases"]').getAttribute('aria-pressed'), 'true');
+  assert.ok(d.querySelectorAll('.language-row').length > 0);
+  assert.equal(recurring.getAttribute('aria-current'), 'location');
+  const about = d.querySelector('.section-nav a[href="#aboutHeading"]');
+  about.click();
+  assert.equal(about.getAttribute('aria-current'), 'location');
+  assert.equal(recurring.hasAttribute('aria-current'), false);
+  const methodology = d.querySelector('[aria-labelledby="aboutHeading"]');
+  assert.match(methodology.textContent, /1,200 precomputed synthetic feedback records/);
+  assert.match(methodology.textContent, /150 authored synthetic stage records/);
+  assert.match(methodology.textContent, /do not change analysis totals or rankings/);
+  assert.match(methodology.textContent, /no live analysis requests/);
+  assert.deepEqual(requests, []);
   dom.window.close();
 });

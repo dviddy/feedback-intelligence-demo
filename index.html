@@ -13,6 +13,8 @@
   <script src="presentation.js" defer></script>
   <script src="data/journey-provenance.js" defer></script>
   <script src="journey-model.js" defer></script>
+  <script src="executive-report-pdf.js" defer></script>
+  <script src="executive-report-adapter.js" defer></script>
   <script src="demo.js" defer></script>
 </head>
 <body>
@@ -41,12 +43,12 @@
       </div>
     </section>
     <div id="resultsExperience" hidden>
-    <div class="results-toolbar"><span>Demo dataset loaded <span aria-hidden="true">·</span> Synthetic feedback</span><button id="newAnalysisButton" type="button">New Analysis</button></div>
+    <div class="results-toolbar"><span>Demo dataset loaded <span aria-hidden="true">·</span> Synthetic feedback</span><div class="results-actions"><button id="downloadReportButton" type="button">Download Executive Report</button><button id="newAnalysisButton" type="button">New Analysis</button></div></div><p id="reportStatus" class="row-meta" role="status"></p>
     <div class="page-heading"><p class="eyebrow">Executive experience overview</p><h1>See what members are experiencing.</h1>
       <p>Synthetic feedback, organized into established themes, emerging experiences and evidence-backed journey opportunities.</p>
       <div class="period-line"><span>Analysis period</span><strong id="activePeriod">Apr 1 – Sep 30, 2026</strong><span id="activeTotal">1,200 analyzed feedback records</span></div>
     </div>
-    <nav class="section-nav" aria-label="Results sections"><a href="#summaryHeading">Executive Summary</a><a href="#visualHeading">Visual Intelligence</a><a href="#intelligenceHeading">Experience Intelligence</a><a href="#journeySectionHeading">Journey Mapping</a><a href="#feedbackHeading">Detailed Feedback</a></nav>
+    <nav class="section-nav" aria-label="Results sections"><a href="#summaryHeading">Executive Summary</a><a href="#visualHeading">Visual Intelligence</a><a href="#intelligenceHeading">Experience Intelligence</a><a href="#journeySectionHeading">Journey Mapping</a><a href="#visualHeading" data-section-visual="phrases">Recurring Language</a><a href="#feedbackHeading">Detailed Feedback</a><a href="#aboutHeading">About</a></nav>
     <section class="date-controls" aria-labelledby="dateHeading"><h2 id="dateHeading">Date range</h2><p>Dates filter the included synthetic records. Presets end on September 30, 2026, the latest fixture date.</p>
       <form id="periodForm"><div class="date-fields"><label>Selected period<select id="periodPreset"><option value="all">All Data</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="q3">Jul–Sep 2026</option><option value="custom">Custom dates</option></select></label>
       <label>From<input id="currentStart" type="date" value="2026-07-01" disabled></label><label>Through<input id="currentEnd" type="date" value="2026-09-30" disabled></label></div>
@@ -78,6 +80,7 @@
     <section class="journey-section" aria-labelledby="journeySectionHeading"><div class="section-heading"><div><p class="eyebrow">04 / Follow the experience</p><h2 id="journeySectionHeading">Journey Mapping</h2></div><p>Concise current-state opportunities. Supporting evidence appears on expansion.</p></div><article class="module" aria-labelledby="journeyHeading"><h3 id="journeyHeading">Journey opportunities</h3><p id="journeySummary" class="module-summary"></p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="journeyPanel">Explore journeys</button><div id="journeyPanel" class="module-panel" hidden></div></article></section>
     <section id="evidencePanel" class="evidence-panel" aria-labelledby="evidenceHeading" hidden><div class="evidence-header"><div><p class="eyebrow">Supporting feedback</p><h2 id="evidenceHeading">Evidence</h2><p id="evidenceContext"></p></div><button id="closeEvidence" type="button">Close evidence</button></div><div id="evidenceChoices" class="evidence-choices" role="group" aria-label="Evidence subsets" hidden></div><div id="evidenceList"></div><button id="moreEvidence" type="button">Show 20 more comments</button><p id="evidenceCount" class="metadata"></p></section>
     <section class="feedback-section" aria-labelledby="feedbackHeading"><div><p class="eyebrow">05 / Source detail</p><h2 id="feedbackHeading">Detailed Feedback</h2><p>Individual synthetic records, shown in small batches for review.</p></div><button id="feedbackToggle" type="button" aria-expanded="false" aria-controls="feedbackPanel">View feedback sample</button><div id="feedbackPanel" hidden><div id="feedbackList"></div><button id="moreFeedback" type="button">Show 20 more</button><p id="feedbackCount" class="metadata"></p></div></section>
+    <section class="about-section" aria-labelledby="aboutHeading"><div class="section-heading"><h2 id="aboutHeading">About this demo</h2><p>A transparent view of the evidence and its limits.</p></div><div class="about-columns"><div><h3>Synthetic feedback</h3><p>The analysis contains 1,200 precomputed synthetic feedback records. Counts describe feedback records and experiences, not the full member population.</p></div><div><h3>Evidence on demand</h3><p>Established Trends, provisional Emerging Experiences, recurring language and period comparisons retain their supporting comments. Needs More Evidence is unavailable in this fixture.</p></div><div><h3>Authored journey provenance</h3><p>Five supported journeys use a separate set of 150 authored synthetic stage records. These records do not change analysis totals or rankings. This static demo makes no live analysis requests.</p></div></div></section>
     <footer><span>Feedback Intelligence product demo</span><span>Synthetic, precomputed data <span aria-hidden="true">·</span> Live analysis unavailable</span></footer>
     </div>
   </main>

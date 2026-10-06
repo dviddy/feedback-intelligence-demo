@@ -27,7 +27,7 @@ function add(parent, ...children) { parent.append(...children); return parent; }
 function feedbackCard(record) {
   const card = el('article', undefined, 'feedback-card');
   add(card, el('h3', record.id), el('p', `${record.date} · Feedback Source: ${record.source} · Experience Touchpoint: ${record.touchpoint}`, 'row-meta'),
-    el('p', record.text), el('p', `${record.sentiment} sentiment · ${record.effort} effort · ${record.priority} priority${record.trend ? ` · ${record.trend}` : ''}`, 'row-meta'));
+    el('p', record.text), el('p', `${record.sentiment} sentiment · ${record.effort} effort · ${record.priority} priority${record.trend ? ` · ${record.trend}` : ''}`, `row-meta feedback-status sentiment-${record.sentiment.toLowerCase()}`));
   return card;
 }
 let selectedEvidence = [];
@@ -168,6 +168,7 @@ function setTrends() {
 }
 function movementRow(item) {
   const row = el('li', undefined, 'data-row movement-row');
+  row.dataset.movement = item.label;
   const heading = el('div', undefined, 'row-heading');
   add(heading, el('h4', item.name), el('span', item.label));
   const boxes = el('div', undefined, 'mini-grid');
@@ -374,7 +375,8 @@ function setJourneySelection(panel, frictionTarget, frictionChoices) {
   const update = () => {
     const amount = mode === 'custom' ? selected.size : Math.min(Number(mode), candidates.length);
     count.textContent = mode === 'custom' ? `Selected: ${amount} of 5` : `${amount} highest-ranked pain points · selected-period evidence`;
-    generate.textContent = mode === 'custom' && amount === 1 ? 'Generate Journey Map →' : 'Generate Journey Maps →';
+    const supportedCount = selection().filter(row => provenance.byExperience.get(row.name)?.supported).length;
+    generate.textContent = `Generate ${supportedCount} Journey Map${supportedCount === 1 ? '' : 's'} →`;
     generate.disabled = !selection().some(row => provenance.byExperience.get(row.name)?.supported);
     note.textContent = `${selection().filter(row => provenance.byExperience.get(row.name)?.supported).length} selected experiences have supported journeys. Journey evidence is separate from analysis totals; unavailable experiences are not replaced.`;
   };
@@ -668,11 +670,22 @@ function setVisuals() {
   });
   for (const button of document.querySelectorAll('[data-visual]'))
     button.addEventListener('click', () => renderVisual(button.dataset.visual));
+  for (const link of document.querySelectorAll('[data-section-visual]')) link.addEventListener('click', () => {
+    panel.hidden = false; toggle.setAttribute('aria-expanded', 'true'); toggle.textContent = 'Hide visuals';
+    renderVisual(link.dataset.sectionVisual);
+  });
+  for (const link of document.querySelectorAll('.section-nav a')) link.addEventListener('click', () => {
+    for (const item of document.querySelectorAll('.section-nav a')) item.removeAttribute('aria-current');
+    link.setAttribute('aria-current', 'location');
+  });
   renderVisual('sentiment');
 }
 function refreshPeriod() {
+  document.getElementById('reportStatus').textContent = '';
+
   const activeVisual = document.querySelector('[data-visual][aria-pressed="true"]')?.dataset.visual || 'sentiment';
   data = presentation.project(fixture, languageConfig, scope); records = data.records;
+  document.getElementById('downloadReportButton').disabled = !data.summary.total;
   closeEvidence(false);
   for (const id of ['summaryMetrics', 'distribution', 'trendsPanel', 'movementPanel', 'emergingPanel', 'migrationPanel', 'needsPanel', 'journeyPanel', 'feedbackList'])
     document.getElementById(id).replaceChildren();
@@ -759,4 +772,31 @@ document.getElementById('newAnalysisButton').addEventListener('click', () => {
   startExperience.hidden = false;
   document.documentElement.scrollTop = 0;
   document.getElementById('startHeading').focus();
+});
+
+// Reuse the local PDF renderer; read the applied period, never unsubmitted date inputs.
+document.getElementById('downloadReportButton').addEventListener('click', () => {
+  const button = document.getElementById('downloadReportButton');
+  const status = document.getElementById('reportStatus');
+  button.disabled = true;
+  try {
+    const provenance = journeyModel.project(journeyFixture, scope.current);
+    const generated = new Set([...document.querySelectorAll('.member-journey')].map(row => row.dataset.painPoint));
+    const model = window.FeedbackDemoReport.build(data, {
+      currentLabel: document.getElementById('activePeriod').textContent,
+      comparison: scope.comparison ? presentation.project(fixture, languageConfig, {current:scope.comparison,comparison:null}) : null,
+      journeys: provenance.journeys.filter(row => row.supported && generated.has(row.painPoint)),
+      journeyRecords: provenance.records,
+      coverage: {totalRecordCount:fixture.records.length,datedRecordCount:fixture.records.length,undatedRecordCount:0}
+    });
+    const pdf = window.ExecutiveReportPdf.renderExecutiveReportPdf(model);
+    const url = URL.createObjectURL(new Blob([pdf.bytes], {type:'application/pdf'}));
+    try {
+      const link = document.createElement('a'); link.href = url; link.download = pdf.filename;
+      document.body.append(link); link.click(); link.remove();
+      status.textContent = 'Executive report download prepared locally - synthetic demo data.';
+    } finally { setTimeout(() => URL.revokeObjectURL(url), 30000); }
+  } catch (error) {
+    status.textContent = 'Report could not be prepared. Please try again.';
+  } finally { button.disabled = !data.summary.total; }
 });

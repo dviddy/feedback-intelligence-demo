@@ -33,6 +33,8 @@ function browser({ load = true } = {}) {
   dom.window.eval(presentationCode);
   dom.window.eval(read('data/journey-provenance.js'));
   dom.window.eval(read('journey-model.js'));
+  dom.window.eval(read('executive-report-pdf.js'));
+  dom.window.eval(read('executive-report-adapter.js'));
   dom.window.eval(code);
   if (load) dom.window.document.getElementById('loadDemoButton').click();
   return { dom, document: dom.window.document, requests };
@@ -281,7 +283,7 @@ test('demo renders compact executive modules and interactions without API calls'
 });
 test('public file scope excludes private backend, credentials and provider calls', () => {
   const files = ['index.html','style.css','demo.js','data/demo-data.js','data/recurring-language.js',
-    'presentation.js','data/journey-provenance.js','journey-model.js','scripts/generate-data.mjs','scripts/voice-library.mjs','scripts/voice-endings.mjs','README.md'];
+    'presentation.js','data/journey-provenance.js','journey-model.js','executive-report-pdf.js','executive-report-adapter.js','scripts/generate-data.mjs','scripts/voice-library.mjs','scripts/voice-endings.mjs','README.md'];
   for (const file of files) {
     const text = read(file);
     assert.ok(!/sk-[A-Za-z0-9_-]{20,}|OPENAI_API_KEY|BEGIN PRIVATE KEY|api\.openai\.com|localhost:\d+/i.test(text), file);

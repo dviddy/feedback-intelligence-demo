@@ -33,3 +33,7 @@ The deterministic synthetic fixture generator is available through `npm run gene
 Each pain point has six explicitly linked synthetic episodes, five stages per episode, and traceable record IDs. A record date is the episode feedback date; stage order comes from authored sequence metadata, not date inference. Static stage summaries cover touchpoints, sentiment, effort and priority. Member actions and observations are explicitly authored synthetic content, not provider output or retrofitted claims about original comments. No owners, inferred emotions or future-state solutions are included.
 
 Top 3/Top 5 continue ranking the main analysis. Only supported selected experiences generate independent journey maps; unavailable selections remain visible without substitution. Journey evidence counts are clearly separate from analysis totals.
+
+## Executive report
+
+After loading the demo, **Download Executive Report** in the results toolbar prepares a local PDF from the applied date period, using the shared vector PDF renderer and the existing deterministic public projections. It includes synthetic-demo disclosure, current metrics, comparison context where configured, evidence excerpts and already-generated supported journeys. Separate journey evidence never contributes to analysis totals. Empty periods disable export. No report request is sent to a server or API.
