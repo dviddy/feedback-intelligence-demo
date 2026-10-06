@@ -307,16 +307,16 @@ function showJourneyMap(journey, target) {
   add(table, body); add(scroll, table); add(target, scroll);
 }
 function renderMemberJourney(journey, target) {
-  add(target, el('h4', `${journey.painPoint} — Current-State Member Journey`),
-    el('p', `${journey.status === 'Established' ? 'Established Trend' : 'Emerging Experience'} · ${journey.count} synthetic journey records · ${journey.stages.length} stages · ${dateLabel(scope.current)}`, 'row-meta'),
-    el('p', `Predominant sentiment: ${journey.predominantSentiment} · High effort: ${journey.highEffort} (${percent(journey.highEffort, journey.count)}) · High priority: ${journey.highPriority} (${percent(journey.highPriority, journey.count)})`, 'row-meta'),
-    el('p', `Touchpoints: ${journey.touchpoints.join(' · ')}. Journey evidence is separate from the analysis totals.`, 'panel-intro'));
+  add(target, el('p', `${dateLabel(scope.current)} · Predominant sentiment: ${journey.predominantSentiment} · Touchpoints: ${journey.touchpoints.join(' · ')}. Journey evidence is separate from the analysis totals.`, 'member-journey-context'));
   const scroll = el('div', undefined, 'journey-map-scroll'); scroll.tabIndex = 0; scroll.setAttribute('role', 'region');
   scroll.setAttribute('aria-label', `${journey.painPoint} ordered journey; scroll horizontally to review stages`);
   const table = el('table', undefined, 'journey-map-matrix lifecycle-matrix');
   const head = el('thead'); const headings = el('tr'); const first = el('th', 'Member journey'); first.scope = 'col'; add(headings, first);
   for (const stage of journey.stages) {
     const cell = el('th'); cell.scope = 'col'; cell.dataset.stage = stage.stageId;
+    cell.className = 'member-stage';
+    if (stage.sentiment.Negative > stage.sentiment.Neutral && stage.sentiment.Negative > stage.sentiment.Positive) cell.classList.add('stage-negative');
+    else if (stage.sentiment.Positive > stage.sentiment.Neutral && stage.sentiment.Positive > stage.sentiment.Negative) cell.classList.add('stage-positive');
     add(cell, el('span', `Stage ${stage.sequence}${stage.sequence < journey.stages.length ? ' →' : ''}`, 'row-meta'), el('h4', stage.stageLabel)); add(headings, cell);
   }
   add(head, headings); add(table, el('caption', 'Ordered member interactions · Synthetic journey evidence'), head);
@@ -327,16 +327,15 @@ function renderMemberJourney(journey, target) {
   };
   row('Member Action', (stage, cell) => add(cell, el('p', stage.memberAction)));
   row('Touchpoint / Channel', (stage, cell) => add(cell, el('p', stage.touchpoints.join(' · '))));
-  row('Pain Point', (stage, cell) => add(cell, el('p', journey.painPoint)));
   const distribution = (field, labels, cell, stage) => {
     for (const label of labels) if (stage[field][label]) add(cell, el('span', `${label} · ${stage[field][label]}`, `journey-level ${field}-${label.toLowerCase()}`));
   };
   row('Member Sentiment', (stage, cell) => distribution('sentiment', ['Positive', 'Neutral', 'Negative'], cell, stage));
   row('Member Effort', (stage, cell) => distribution('effort', ['Low', 'Medium', 'High'], cell, stage));
   row('Priority', (stage, cell) => distribution('priority', ['Low', 'Medium', 'High'], cell, stage));
-  row('Current-State Observation', (stage, cell) => add(cell, el('p', stage.currentStateObservation, 'journey-observation')));
   row('Supporting Evidence', (stage, cell) => {
-    const details = el('details'); add(details, el('summary', `Inspect ${stage.recordIds.length} comments`),
+    const details = el('details'); add(details, el('summary', `Insight & evidence · ${stage.recordIds.length} comments`),
+      el('p', stage.currentStateObservation, 'journey-observation'),
       evidenceAction(`View ${stage.recordIds.length} journey comments`, `${journey.painPoint} / ${stage.stageLabel}`, [{
         label: 'Synthetic journey evidence', journey: true, recordIds: stage.recordIds,
         context: `${currentContext()} · authored synthetic journey evidence, separate from analysis totals`
@@ -353,8 +352,8 @@ function setJourneySelection(panel, frictionTarget, frictionChoices) {
   const provenance = journeyModel.project(journeyFixture, scope.current);
   let mode = '3'; let selected = new Set(); let search = '';
   const section = el('section', undefined, 'journey-selection'); section.setAttribute('aria-label', 'Pain-point journey selection');
-  add(section, el('h4', 'Journeys behind your biggest member problems'),
-    el('p', 'Choose recurring experiences from the selected period. Each needs validated interaction sequence evidence before its own independent journey can be generated.', 'panel-intro'));
+  add(section, el('h3', 'Create Journey Maps From'),
+    el('p', 'Choose your focus. Only experiences with supported interaction evidence can generate a journey map.', 'panel-intro'));
   const controls = el('div', undefined, 'journey-modes'); controls.setAttribute('role', 'group'); controls.setAttribute('aria-label', 'Journey selection mode');
   const content = el('div'); content.id = 'painPointSelection';
   const modeButtons = [];
@@ -363,7 +362,7 @@ function setJourneySelection(panel, frictionTarget, frictionChoices) {
   generate.setAttribute('aria-describedby', 'journeyEligibilityNote');
   const note = el('p', 'Supported experiences use separate synthetic journey evidence. Analysis rankings and totals are unchanged. Unavailable experiences remain visible and are not replaced.', 'panel-intro'); note.id = 'journeyEligibilityNote';
   const count = el('p', undefined, 'row-meta'); count.id = 'journeySelectionCount';
-  const output = el('div'); output.id = 'painPointJourneyOutput'; output.hidden = true;
+  const output = el('section', undefined, 'generated-member-journeys'); output.id = 'painPointJourneyOutput'; output.hidden = true; output.setAttribute('aria-label', 'Generated Journey Maps');
   generate.setAttribute('aria-controls', output.id); generate.setAttribute('aria-expanded', 'false');
   const selection = () => mode === 'custom' ? pickerCandidates.filter(row => selected.has(row.id)) : candidates.slice(0, Number(mode));
   const reset = () => {
@@ -381,6 +380,25 @@ function setJourneySelection(panel, frictionTarget, frictionChoices) {
     note.textContent = `${selection().filter(row => provenance.byExperience.get(row.name)?.supported).length} selected experiences have supported journeys. Journey evidence is separate from analysis totals; unavailable experiences are not replaced.`;
   };
   const card = (experience, custom = false, rank = null) => {
+    if (!custom) {
+      const row = el('tr', undefined, 'pain-point-candidate'); row.dataset.experience = experience.name;
+      const rankCell = el('td', rank, 'pain-point-rank');
+      const name = el('th'); name.scope = 'row'; add(name, el('strong', experience.name));
+      const amount = el('td', undefined, 'pain-point-records');
+      const evidence = evidenceAction(`View ${experience.count} supporting comments`, experience.name,
+        oneGroup(experience.recordIds, currentContext() + ' · selected pain-point evidence'));
+      evidence.setAttribute('aria-label', evidence.textContent); evidence.textContent = 'View comments';
+      add(amount, el('strong', format(experience.count)), evidence);
+      const status = el('td'); add(status, el('span', experience.kind === 'Established' ? 'Established Trend' : 'Emerging Experience', 'pain-point-status'));
+      const domain = el('td', experience.domain || 'Outside controlled taxonomy');
+      const available = provenance.byExperience.get(experience.name)?.supported;
+      const eligibility = el('td'); add(eligibility,
+        el('span', available ? 'Journey Supported' : 'Insufficient Journey Evidence', available ? 'journey-supported' : 'journey-unavailable'));
+      if (available) add(eligibility, el('span', `${provenance.byExperience.get(experience.name).count} synthetic journey records · 5 stages`, 'row-meta'));
+      else add(eligibility, add(el('details', undefined, 'journey-eligibility-detail'), el('summary', 'Why unavailable?'), el('p', 'Not enough interaction evidence to construct a reliable journey.', 'row-meta')));
+      add(name, el('span', `High effort: ${experience.recordIds.filter(id => byId.get(id).effort === 'High').length} · High priority: ${experience.highPriorityCount}`, 'row-meta'));
+      return add(row, rankCell, name, amount, status, domain, eligibility);
+    }
     const article = el('article', undefined, 'pain-point-candidate'); article.dataset.experience = experience.name;
     const title = custom ? el('label', undefined, 'pain-point-label') : el('h4', `${rank}. ${experience.name}`);
     if (custom) {
@@ -409,7 +427,13 @@ function setJourneySelection(panel, frictionTarget, frictionChoices) {
   const renderList = () => {
     const list = content.querySelector('.pain-point-list'); list.replaceChildren();
     if (mode !== 'custom') {
-      for (const [i, experience] of candidates.slice(0, Number(mode)).entries()) add(list, card(experience, false, i + 1));
+      const scroll = el('div', undefined, 'pain-point-table-scroll'); scroll.tabIndex = 0; scroll.setAttribute('role', 'region'); scroll.setAttribute('aria-label', 'Ranked pain points; scroll horizontally to review columns');
+      const table = el('table', undefined, 'pain-point-table'); add(table, el('caption', 'Ranked selected-period pain points'));
+      const head = el('thead'); const headings = el('tr');
+      for (const label of ['Rank', 'Pain Point', 'Supporting Records', 'Status', 'Domain', 'Journey Map / Availability']) { const cell = el('th', label); cell.scope = 'col'; add(headings, cell); }
+      const body = el('tbody');
+      for (const [i, experience] of candidates.slice(0, Number(mode)).entries()) add(body, card(experience, false, i + 1));
+      add(head, headings); add(table, head, body); add(scroll, table); add(list, scroll);
       if (!candidates.length) add(list, el('p', 'No recurring experiences are represented in this period.', 'empty-state'));
     } else {
       const matches = pickerCandidates.filter(row => `${row.name} ${row.domain || ''}`.toLowerCase().includes(search.toLowerCase()));
@@ -430,7 +454,10 @@ function setJourneySelection(panel, frictionTarget, frictionChoices) {
       input.setAttribute('aria-label', 'Filter experiences');
       input.addEventListener('input', () => { search = input.value; renderList(); }); add(label, input); add(content, label);
     }
-    add(content, el('div', undefined, 'pain-point-list')); renderList(); update();
+    content.dataset.mode = mode;
+    const list = el('div', undefined, 'pain-point-list');
+    if (mode === 'custom') { list.tabIndex = 0; list.setAttribute('role', 'region'); list.setAttribute('aria-label', 'Experience choices; scroll to review all established and emerging experiences'); }
+    add(content, list); renderList(); update();
   };
   for (const [value, label] of [['3', 'Top 3 Pain Points'], ['5', 'Top 5 Pain Points'], ['custom', 'Select Your Own']]) {
     const button = el('button', label); button.type = 'button'; button.setAttribute('aria-controls', content.id);
@@ -445,11 +472,15 @@ function setJourneySelection(panel, frictionTarget, frictionChoices) {
     output.replaceChildren(); const chosen = selection();
     const supported = chosen.map(row => provenance.byExperience.get(row.name)).filter(row => row?.supported);
     const total = new Set(supported.flatMap(row => row.recordIds)).size;
-    add(output, el('h4', `${supported.length} journey${supported.length === 1 ? '' : 's'} generated`),
+    add(output, el('h3', 'Generated Journey Maps'), el('h4', `${supported.length} journey${supported.length === 1 ? '' : 's'} generated`),
       el('p', `${total} supporting synthetic journey records · ${supported.filter(row => row.status === 'Established').length} Established · ${supported.filter(row => row.status === 'Emerging').length} Emerging`, 'row-meta'));
     for (const [i, journey] of supported.entries()) {
       const details = el('details', undefined, 'member-journey'); details.dataset.painPoint = journey.painPoint; details.open = i === 0;
-      add(details, el('summary', `${journey.painPoint} — Current-State Member Journey`));
+      const heading = el('summary'); heading.setAttribute('aria-label', `${journey.painPoint} — Current-State Member Journey`);
+      add(heading, el('h4', journey.painPoint), el('span', journey.status === 'Established' ? 'Established Trend' : 'Emerging Experience', 'member-journey-status'),
+        el('span', `${journey.count} synthetic journey records · ${journey.stages.length} stages · ${journey.touchpoints.length} touchpoint${journey.touchpoints.length === 1 ? '' : 's'}`, 'member-journey-measures'),
+        el('span', `High effort ${journey.highEffort} (${percent(journey.highEffort, journey.count)}) · High priority ${journey.highPriority} (${percent(journey.highPriority, journey.count)})`, 'member-journey-measures'));
+      add(details, heading);
       renderMemberJourney(journey, details); add(output, details);
     }
     for (const experience of chosen.filter(row => !provenance.byExperience.get(row.name)?.supported)) add(output, el('p', `${experience.name}: Journey unavailable — insufficient interaction sequence evidence.`, 'journey-unavailable'));
@@ -457,12 +488,17 @@ function setJourneySelection(panel, frictionTarget, frictionChoices) {
     generate.textContent = supported.length === 1 ? 'Journey Map Generated' : 'Journey Maps Generated';
     status.textContent = `${supported.length} independent journey maps generated.`;
   });
-  add(section, controls, count, content, generate, note, status, output); add(panel, section); render();
+  const action = el('div', undefined, 'journey-generation-action'); add(action, generate, note);
+  add(section, controls, count, content, action, status, output); add(panel, section); render();
 }
 function setJourneys() {
+  const strip = document.getElementById('journeyKpis'); strip.replaceChildren();
+  for (const [label, value] of [['Feedback Records', data.summary.total], ['Established Trends', data.summary.established], ['Emerging Experiences', data.summary.emerging], ['High Effort Records', data.summary.effort.High]]) {
+    add(strip, add(el('div'), el('span', label, 'journey-kpi-label'), el('strong', format(value), 'journey-kpi-value')));
+  }
+  document.getElementById('journeyPeriod').textContent = dateLabel(scope.current);
   document.getElementById('journeySummary').textContent = `${data.journeys.length} experiences ready for current-state journey review`;
   const panel = document.getElementById('journeyPanel');
-  add(panel, el('p', 'Select an experience to review current-state friction, then generate an evidence-backed friction map from the included synthetic feedback.', 'panel-intro'));
   if (!data.journeys.length) add(panel, el('p', 'No journey evidence is available in this period.', 'empty-state'));
   const choices = el('div', undefined, 'journey-list');
   const target = el('div', undefined, 'journey-display'); target.id = 'journeyDisplay';
@@ -489,7 +525,7 @@ function setJourneys() {
     add(choices, button);
   }
   setJourneySelection(panel, target, choices);
-  add(panel, el('h4', 'Available current-state friction maps'), choices, target);
+  const legacy = el('details', undefined, 'journey-friction-library'); add(legacy, el('summary', 'Explore existing current-state friction maps'), choices, target); add(panel, legacy);
 }
 let feedbackShown = 0;
 function showFeedback() {
@@ -660,6 +696,34 @@ function renderVisual(name) {
   for (const button of document.querySelectorAll('[data-visual]'))
     button.setAttribute('aria-pressed', String(button.dataset.visual === name));
 }
+const dateControls = document.querySelector('.date-controls');
+const dateHome = document.createComment('Original date controls location');
+dateControls.before(dateHome);
+function setJourneyWorkspace(active) {
+  const results = document.getElementById('resultsExperience');
+  results.classList.toggle('journey-workspace', active);
+  const journeyLink = document.querySelector('.section-nav a[href="#journeySectionHeading"]');
+  if (active) {
+    for (const item of document.querySelectorAll('.section-nav a')) item.removeAttribute('aria-current');
+    journeyLink.setAttribute('aria-current', 'location');
+  } else if (journeyLink.hasAttribute('aria-current')) {
+    journeyLink.removeAttribute('aria-current');
+    const destination = [...document.querySelectorAll('.section-nav a')].find(item => item.hash === window.location.hash && item !== journeyLink) || document.querySelector('.section-nav a');
+    destination.setAttribute('aria-current', 'location');
+  }
+  const dates = document.getElementById('journeyDates');
+  if (active) {
+    document.getElementById('journeyDateSlot').append(dateControls);
+    document.getElementById('journeyPanel').hidden = false;
+    const toggle = document.querySelector('[aria-controls="journeyPanel"]'); toggle.setAttribute('aria-expanded', 'true'); toggle.textContent = 'Hide journeys';
+  } else {
+    dateHome.after(dateControls); dates.open = false;
+  }
+}
+window.addEventListener('hashchange', () => {
+  setJourneyWorkspace(window.location.hash === '#journeySectionHeading');
+});
+document.getElementById('journeySectionHeading').addEventListener('focus', () => setJourneyWorkspace(true));
 function setVisuals() {
   const toggle = document.getElementById('visualToggle');
   const panel = document.getElementById('visualPanel');
@@ -677,6 +741,7 @@ function setVisuals() {
   for (const link of document.querySelectorAll('.section-nav a')) link.addEventListener('click', () => {
     for (const item of document.querySelectorAll('.section-nav a')) item.removeAttribute('aria-current');
     link.setAttribute('aria-current', 'location');
+    setJourneyWorkspace(link.getAttribute('href') === '#journeySectionHeading');
   });
   renderVisual('sentiment');
 }
@@ -736,8 +801,10 @@ document.getElementById('loadDemoButton').addEventListener('click', () => {
   document.getElementById('visualToggle').textContent = 'Hide visuals';
   document.documentElement.scrollTop = 0;
   document.getElementById('summaryHeading').focus();
+  setJourneyWorkspace(window.location.hash === '#journeySectionHeading');
 });
 document.getElementById('newAnalysisButton').addEventListener('click', () => {
+  setJourneyWorkspace(false);
   closeEvidence(false);
   for (const button of document.querySelectorAll('.module-toggle, #feedbackToggle')) {
     button.setAttribute('aria-expanded', 'false');

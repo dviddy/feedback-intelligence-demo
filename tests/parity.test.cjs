@@ -554,7 +554,7 @@ test('Custom supported Established and Emerging selection produces accurate inde
   assert.match(d.getElementById('painPointJourneyOutput').textContent, /1 Established · 1 Emerging/);
   for (const map of maps) {
     assert.equal(map.querySelectorAll('thead [data-stage]').length, 5);
-    assert.deepEqual([...map.querySelectorAll('tbody th')].map(row => row.textContent), ['Member Action', 'Touchpoint / Channel', 'Pain Point', 'Member Sentiment', 'Member Effort', 'Priority', 'Current-State Observation', 'Supporting Evidence']);
+    assert.deepEqual([...map.querySelectorAll('tbody th')].map(row => row.textContent), ['Member Action', 'Touchpoint / Channel', 'Member Sentiment', 'Member Effort', 'Priority', 'Supporting Evidence']);
     assert.ok(!/Owner|Future-State|Member Emotion/.test(map.textContent));
     assert.ok(map.textContent.includes('Stage 1 →'));
   }
@@ -594,4 +594,89 @@ test('Section navigation opens recurring language and exposes the synthetic meth
   assert.match(methodology.textContent, /no live analysis requests/);
   assert.deepEqual(requests, []);
   dom.window.close();
+});
+
+test('Journey workspace reuses the date form and restores other sections without rewriting their content', () => {
+  const { dom, d, requests, change, apply } = browser();
+  const dates = d.querySelector('.date-controls'), form = d.getElementById('periodForm');
+  const otherSections = ['.summary-section', '.visual-section', '.intelligence-section', '.feedback-section', '.about-section'];
+  const before = otherSections.map(selector => d.querySelector(selector).innerHTML);
+  const journeyLink = d.querySelector('.section-nav a[href="#journeySectionHeading"]'); journeyLink.click();
+  assert.ok(d.getElementById('resultsExperience').classList.contains('journey-workspace'));
+  assert.equal(d.getElementById('journeyDateSlot').firstElementChild, dates);
+  assert.equal(d.querySelectorAll('#periodForm').length, 1); assert.equal(d.getElementById('periodForm'), form);
+  assert.equal(d.getElementById('journeyPanel').hidden, false);
+  assert.equal(journeyLink.getAttribute('aria-current'), 'location');
+  assert.deepEqual(otherSections.map(selector => d.querySelector(selector).innerHTML), before);
+  assert.deepEqual([...d.querySelectorAll('.journey-kpi-value')].map(node => node.textContent), ['1,200', '16', '5', '346']);
+  change('periodPreset', '30'); apply();
+  assert.deepEqual([...d.querySelectorAll('.journey-kpi-value')].map(node => node.textContent), ['230', '15', '5', '230']);
+  assert.equal(d.getElementById('journeyPeriod').textContent, d.getElementById('activePeriod').textContent);
+  assert.equal(d.getElementById('journeyDateSlot').firstElementChild, dates);
+  d.querySelector('.section-nav a[href="#summaryHeading"]').click();
+  assert.equal(d.getElementById('resultsExperience').classList.contains('journey-workspace'), false);
+  assert.equal(dates.nextElementSibling, d.querySelector('.summary-section'));
+  assert.equal(d.getElementById('journeyDateSlot').children.length, 0);
+  d.getElementById('journeySectionHeading').focus(); assert.ok(d.getElementById('resultsExperience').classList.contains('journey-workspace'));
+  d.getElementById('newAnalysisButton').click();
+  assert.equal(d.getElementById('resultsExperience').classList.contains('journey-workspace'), false);
+  assert.equal(dates.nextElementSibling, d.querySelector('.summary-section'));
+  assert.deepEqual(requests, []); dom.window.close();
+});
+
+test('Journey hash navigation isolates and restores the workspace without changing selection', () => {
+  const { dom, d } = browser();
+  d.querySelectorAll('.journey-modes button')[1].click(); d.querySelector('.pain-point-generate').click();
+  const maps = [...d.querySelectorAll('.member-journey')];
+  dom.window.history.replaceState(null, '', '#journeySectionHeading'); dom.window.dispatchEvent(new dom.window.HashChangeEvent('hashchange'));
+  assert.ok(d.getElementById('resultsExperience').classList.contains('journey-workspace'));
+  dom.window.history.replaceState(null, '', '#aboutHeading'); dom.window.dispatchEvent(new dom.window.HashChangeEvent('hashchange'));
+  assert.equal(d.getElementById('resultsExperience').classList.contains('journey-workspace'), false);
+  assert.deepEqual([...d.querySelectorAll('.member-journey')], maps);
+  dom.window.close();
+});
+
+test('Ranked pain-point table retains exact counts, statuses, domain, availability and evidence', () => {
+  const { dom, d } = browser();
+  const table = d.querySelector('.pain-point-table');
+  assert.deepEqual([...table.querySelectorAll('thead th')].map(node => node.textContent), ['Rank', 'Pain Point', 'Supporting Records', 'Status', 'Domain', 'Journey Map / Availability']);
+  const expected = [...project().established, ...project().emerging.filter(row => row.count >= 2)].sort((a,b) => b.count-a.count || a.name.localeCompare(b.name)).slice(0,3);
+  for (const [i, row] of [...table.querySelectorAll('tbody tr')].entries()) {
+    const cells = row.children, experience = expected[i];
+    assert.equal(cells[0].textContent, String(i+1)); assert.equal(cells[1].querySelector('strong').textContent, experience.name);
+    assert.equal(cells[1].scope, 'row'); assert.equal(cells[2].querySelector('strong').textContent, String(experience.count));
+    assert.match(cells[3].textContent, /Established Trend/); assert.equal(cells[4].textContent, experience.domain);
+    const supported = dom.window.FEEDBACK_JOURNEY_MODEL.project(dom.window.FEEDBACK_JOURNEY_PROVENANCE).byExperience.get(experience.name)?.supported;
+    assert.match(cells[5].textContent, supported ? /Journey Supported/ : /Insufficient Journey Evidence/);
+    cells[2].querySelector('.evidence-action').click();
+    const ids = [...d.querySelectorAll('#evidenceList .feedback-card h3')].map(node => node.textContent);
+    assert.ok(ids.length); assert.ok(ids.every(id => experience.recordIds.includes(id)));
+  }
+  assert.equal(d.querySelector('.pain-point-table-scroll').tabIndex, 0); dom.window.close();
+});
+
+test('Compact map headers and on-demand stage insights retain exact separate pain-point evidence', () => {
+  const { dom, d, requests } = browser();
+  d.querySelectorAll('.journey-modes button')[2].click();
+  for (const name of ['Login Failure','Password Reset Failure']) d.querySelector(`.pain-point-candidate[data-experience="${name}"] input`).click();
+  d.querySelector('.pain-point-generate').click();
+  assert.equal(d.getElementById('painPointJourneyOutput').querySelector('h3').textContent, 'Generated Journey Maps');
+  const projection = dom.window.FEEDBACK_JOURNEY_MODEL.project(dom.window.FEEDBACK_JOURNEY_PROVENANCE);
+  for (const [i, map] of [...d.querySelectorAll('.member-journey')].entries()) {
+    const journey = projection.byExperience.get(map.dataset.painPoint);
+    assert.equal(map.open, i === 0); map.open = true; assert.equal(map.open, true); map.open = false;
+    assert.equal(map.querySelector('summary h4').textContent, journey.painPoint);
+    assert.match(map.querySelector('summary').textContent, /30 synthetic journey records · 5 stages · 2 touchpoints/);
+    const details = [...map.querySelectorAll('tbody td details')]; assert.equal(details.length, journey.stages.length);
+    for (const [n, detail] of details.entries()) {
+      const stage = journey.stages[n]; assert.equal(detail.open, false);
+      assert.equal(detail.querySelector('.journey-observation').textContent, stage.currentStateObservation);
+      detail.querySelector('.evidence-action').click();
+      const ids = [...d.querySelectorAll('#evidenceList .feedback-card h3')].map(node => node.textContent);
+      assert.equal(ids.length, stage.recordIds.length);
+      assert.ok(ids.every(id => stage.recordIds.includes(id)));
+      assert.ok(ids.every(id => dom.window.FEEDBACK_JOURNEY_PROVENANCE.records.find(row => row.id === id).painPoint === journey.painPoint));
+    }
+  }
+  assert.deepEqual(requests, []); dom.window.close();
 });
