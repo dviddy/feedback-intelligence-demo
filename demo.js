@@ -5,7 +5,9 @@ const presentation = window.FEEDBACK_DEMO_PRESENTATION;
 let scope = { current: null, comparison: null };
 let data = presentation.project(fixture, languageConfig, scope);
 let records = data.records;
-const byId = new Map(fixture.records.map(record => [record.id, record]));
+const journeyFixture = window.FEEDBACK_JOURNEY_PROVENANCE;
+const journeyModel = window.FEEDBACK_JOURNEY_MODEL;
+const byId = new Map([...fixture.records, ...journeyFixture.records].map(record => [record.id, record]));
 const dateLabel = range => range ? `${range[0]} – ${range[1]}` : `${fixture.meta.startDate} – ${fixture.meta.endDate} · All Data`;
 const currentContext = () => `${dateLabel(scope.current)} · selected synthetic feedback`;
 const comparisonContext = () => `${dateLabel(scope.comparison)} · comparison synthetic feedback`;
@@ -39,7 +41,7 @@ function showEvidenceBatch() {
   document.getElementById('moreEvidence').hidden = evidenceShown >= selectedEvidence.length;
 }
 function selectEvidenceGroup(group, buttons) {
-  const allowed = new Set((group.comparison ? fixture.records.filter(row => scope.comparison && row.date >= scope.comparison[0] && row.date <= scope.comparison[1]) : records).map(row => row.id));
+  const allowed = new Set((group.journey ? journeyModel.project(journeyFixture, scope.current).records : group.comparison ? fixture.records.filter(row => scope.comparison && row.date >= scope.comparison[0] && row.date <= scope.comparison[1]) : records).map(row => row.id));
   selectedEvidence = [...new Set(group.recordIds)].filter(id => allowed.has(id));
   evidenceShown = 0;
   document.getElementById('evidenceList').replaceChildren();
@@ -264,32 +266,201 @@ function showJourney(journey, target) {
 }
 function showJourneyMap(journey, target) {
   target.replaceChildren();
-  add(target, el('h4', `${journey.name} · Current-State Journey Map`),
-    el('p', 'Evidence-backed friction themes, not a reconstructed individual sequence.', 'panel-intro'));
-  const map = el('ul', undefined, 'journey-map-grid');
+  add(target, el('h4', `${journey.name} — Current-State Journey Friction Map`),
+    el('p', `${journey.supportingRecordCount} supporting synthetic records · ${dateLabel(scope.current)}`, 'row-meta'),
+    el('p', 'An evidence view across current-state friction themes, not a reconstructed individual sequence. Lifecycle stages, member actions and emotions are not included in this demo.', 'panel-intro'));
+  const scroll = el('div', undefined, 'journey-map-scroll');
+  scroll.tabIndex = 0; scroll.setAttribute('role', 'region'); scroll.setAttribute('aria-label', `${journey.name} journey matrix; scroll horizontally to review columns`);
+  const table = el('table', undefined, 'journey-map-matrix');
+  add(table, el('caption', 'Current-state experience · Supporting detail and evidence on demand'));
+  const head = el('thead'); const headings = el('tr');
+  const corner = el('th', 'Journey evidence'); corner.scope = 'col'; add(headings, corner);
   for (const stage of journey.stages) {
-    const card = el('li', undefined, 'journey-map-card');
-    add(card, el('h4', stage.label),
-      el('p', `${stage.recordIds.length} supporting records`, 'row-meta'),
-      el('p', `${stage.negative} negative · ${stage.highEffort} high effort · ${stage.highPriority} high priority`, 'row-meta'));
-    const details = el('details');
-    add(details, el('summary', 'View current-state detail and evidence'));
-    const rows = stage.recordIds.map(id => byId.get(id));
-    const touchpoints = [...new Set(rows.map(row => row.touchpoint))];
-    if (touchpoints.length) add(details, el('p', `Touchpoints · ${touchpoints.join(' · ')}`, 'row-meta'));
-    if (stage.evidenceIds.length) {
-      add(details, el('p', `Supporting observation · ${byId.get(stage.evidenceIds[0]).text}`, 'row-meta'),
-        evidenceList(stage.evidenceIds), evidenceAction(`View ${stage.recordIds.length} comments`,
-          `${journey.name} / ${stage.label}`, oneGroup(stage.recordIds, currentContext() + ' · current-state journey evidence')));
-    } else add(details, el('p', 'No feedback evidence observed in this period.', 'row-meta'));
-    add(card, details); add(map, card);
+    const cell = el('th'); cell.scope = 'col'; cell.className = 'journey-map-stage';
+    add(cell, el('h4', stage.label), el('span', `${stage.recordIds.length} supporting records`, 'row-meta')); add(headings, cell);
   }
-  add(target, map);
+  add(head, headings); add(table, head);
+  const body = el('tbody');
+  const row = (label, render) => {
+    const tr = el('tr'); const heading = el('th', label); heading.scope = 'row'; add(tr, heading);
+    for (const stage of journey.stages) { const cell = el('td'); render(stage, cell); add(tr, cell); }
+    add(body, tr);
+  };
+  row('Pain Point', (stage, cell) => add(cell, el('p', stage.label)));
+  row('Touchpoint / Channel', (stage, cell) => {
+    const touchpoints = [...new Set(stage.recordIds.map(id => byId.get(id).touchpoint))];
+    add(cell, el('p', touchpoints.length ? touchpoints.join(' · ') : 'Not represented in this period'));
+  });
+  row('Member Effort', (stage, cell) => add(cell, el('span', `High · ${stage.highEffort} records`, 'journey-level effort-high'),
+    el('p', 'Existing high-effort evidence count', 'row-meta')));
+  row('Priority', (stage, cell) => add(cell, el('span', `High · ${stage.highPriority} records`, 'journey-level priority-high'),
+    el('p', 'Existing high-priority evidence count', 'row-meta')));
+  row('Current-State Insight', (stage, cell) => add(cell, el('p', `${stage.negative} negative feedback records among ${stage.recordIds.length} supporting observations.`, 'journey-observation')));
+  row('Supporting Evidence', (stage, cell) => {
+    if (!stage.evidenceIds.length) { add(cell, el('p', 'No feedback evidence observed in this period.', 'row-meta')); return; }
+    const details = el('details'); add(details, el('summary', 'Inspect synthetic evidence'));
+    add(details, evidenceList(stage.evidenceIds), evidenceAction(`View ${stage.recordIds.length} comments`,
+      `${journey.name} / ${stage.label}`, oneGroup(stage.recordIds, currentContext() + ' · current-state journey evidence')));
+    add(cell, details);
+  });
+  add(table, body); add(scroll, table); add(target, scroll);
+}
+function renderMemberJourney(journey, target) {
+  add(target, el('h4', `${journey.painPoint} — Current-State Member Journey`),
+    el('p', `${journey.status === 'Established' ? 'Established Trend' : 'Emerging Experience'} · ${journey.count} synthetic journey records · ${journey.stages.length} stages · ${dateLabel(scope.current)}`, 'row-meta'),
+    el('p', `Predominant sentiment: ${journey.predominantSentiment} · High effort: ${journey.highEffort} (${percent(journey.highEffort, journey.count)}) · High priority: ${journey.highPriority} (${percent(journey.highPriority, journey.count)})`, 'row-meta'),
+    el('p', `Touchpoints: ${journey.touchpoints.join(' · ')}. Journey evidence is separate from the analysis totals.`, 'panel-intro'));
+  const scroll = el('div', undefined, 'journey-map-scroll'); scroll.tabIndex = 0; scroll.setAttribute('role', 'region');
+  scroll.setAttribute('aria-label', `${journey.painPoint} ordered journey; scroll horizontally to review stages`);
+  const table = el('table', undefined, 'journey-map-matrix lifecycle-matrix');
+  const head = el('thead'); const headings = el('tr'); const first = el('th', 'Member journey'); first.scope = 'col'; add(headings, first);
+  for (const stage of journey.stages) {
+    const cell = el('th'); cell.scope = 'col'; cell.dataset.stage = stage.stageId;
+    add(cell, el('span', `Stage ${stage.sequence}${stage.sequence < journey.stages.length ? ' →' : ''}`, 'row-meta'), el('h4', stage.stageLabel)); add(headings, cell);
+  }
+  add(head, headings); add(table, el('caption', 'Ordered member interactions · Synthetic journey evidence'), head);
+  const body = el('tbody');
+  const row = (label, render) => {
+    const tr = el('tr'); const heading = el('th', label); heading.scope = 'row'; add(tr, heading);
+    for (const stage of journey.stages) { const cell = el('td'); render(stage, cell); add(tr, cell); } add(body, tr);
+  };
+  row('Member Action', (stage, cell) => add(cell, el('p', stage.memberAction)));
+  row('Touchpoint / Channel', (stage, cell) => add(cell, el('p', stage.touchpoints.join(' · '))));
+  row('Pain Point', (stage, cell) => add(cell, el('p', journey.painPoint)));
+  const distribution = (field, labels, cell, stage) => {
+    for (const label of labels) if (stage[field][label]) add(cell, el('span', `${label} · ${stage[field][label]}`, `journey-level ${field}-${label.toLowerCase()}`));
+  };
+  row('Member Sentiment', (stage, cell) => distribution('sentiment', ['Positive', 'Neutral', 'Negative'], cell, stage));
+  row('Member Effort', (stage, cell) => distribution('effort', ['Low', 'Medium', 'High'], cell, stage));
+  row('Priority', (stage, cell) => distribution('priority', ['Low', 'Medium', 'High'], cell, stage));
+  row('Current-State Observation', (stage, cell) => add(cell, el('p', stage.currentStateObservation, 'journey-observation')));
+  row('Supporting Evidence', (stage, cell) => {
+    const details = el('details'); add(details, el('summary', `Inspect ${stage.recordIds.length} comments`),
+      evidenceAction(`View ${stage.recordIds.length} journey comments`, `${journey.painPoint} / ${stage.stageLabel}`, [{
+        label: 'Synthetic journey evidence', journey: true, recordIds: stage.recordIds,
+        context: `${currentContext()} · authored synthetic journey evidence, separate from analysis totals`
+      }])); add(cell, details);
+  });
+  add(table, body); add(scroll, table); add(target, scroll);
+}
+function setJourneySelection(panel, frictionTarget, frictionChoices) {
+  // Rank recurring experiences before checking lifecycle eligibility; never silently substitute.
+  const candidates = [...data.established, ...data.emerging.filter(row => row.count >= 2)]
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  const pickerCandidates = [...data.establishedPresence, ...data.emerging]
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  const provenance = journeyModel.project(journeyFixture, scope.current);
+  let mode = '3'; let selected = new Set(); let search = '';
+  const section = el('section', undefined, 'journey-selection'); section.setAttribute('aria-label', 'Pain-point journey selection');
+  add(section, el('h4', 'Journeys behind your biggest member problems'),
+    el('p', 'Choose recurring experiences from the selected period. Each needs validated interaction sequence evidence before its own independent journey can be generated.', 'panel-intro'));
+  const controls = el('div', undefined, 'journey-modes'); controls.setAttribute('role', 'group'); controls.setAttribute('aria-label', 'Journey selection mode');
+  const content = el('div'); content.id = 'painPointSelection';
+  const modeButtons = [];
+  const status = el('p', undefined, 'row-meta'); status.setAttribute('role', 'status');
+  const generate = el('button', 'Generate Journey Maps →', 'pain-point-generate'); generate.type = 'button'; generate.disabled = true;
+  generate.setAttribute('aria-describedby', 'journeyEligibilityNote');
+  const note = el('p', 'Supported experiences use separate synthetic journey evidence. Analysis rankings and totals are unchanged. Unavailable experiences remain visible and are not replaced.', 'panel-intro'); note.id = 'journeyEligibilityNote';
+  const count = el('p', undefined, 'row-meta'); count.id = 'journeySelectionCount';
+  const output = el('div'); output.id = 'painPointJourneyOutput'; output.hidden = true;
+  generate.setAttribute('aria-controls', output.id); generate.setAttribute('aria-expanded', 'false');
+  const selection = () => mode === 'custom' ? pickerCandidates.filter(row => selected.has(row.id)) : candidates.slice(0, Number(mode));
+  const reset = () => {
+    output.replaceChildren(); output.hidden = true; generate.setAttribute('aria-expanded', 'false');
+    frictionTarget.replaceChildren();
+    for (const choice of frictionChoices.children) choice.setAttribute('aria-pressed', 'false');
+    closeEvidence(false);
+  };
+  const update = () => {
+    const amount = mode === 'custom' ? selected.size : Math.min(Number(mode), candidates.length);
+    count.textContent = mode === 'custom' ? `Selected: ${amount} of 5` : `${amount} highest-ranked pain points · selected-period evidence`;
+    generate.textContent = mode === 'custom' && amount === 1 ? 'Generate Journey Map →' : 'Generate Journey Maps →';
+    generate.disabled = !selection().some(row => provenance.byExperience.get(row.name)?.supported);
+    note.textContent = `${selection().filter(row => provenance.byExperience.get(row.name)?.supported).length} selected experiences have supported journeys. Journey evidence is separate from analysis totals; unavailable experiences are not replaced.`;
+  };
+  const card = (experience, custom = false, rank = null) => {
+    const article = el('article', undefined, 'pain-point-candidate'); article.dataset.experience = experience.name;
+    const title = custom ? el('label', undefined, 'pain-point-label') : el('h4', `${rank}. ${experience.name}`);
+    if (custom) {
+      const checkbox = el('input'); checkbox.type = 'checkbox'; checkbox.value = experience.id;
+      checkbox.checked = selected.has(experience.id); checkbox.disabled = selected.size >= 5 && !checkbox.checked;
+      checkbox.setAttribute('aria-label', `Select ${experience.name}`);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked && selected.size >= 5) { checkbox.checked = false; status.textContent = 'Select up to five pain points.'; return; }
+        checkbox.checked ? selected.add(experience.id) : selected.delete(experience.id);
+        status.textContent = selected.size === 5 ? 'Five selected. Deselect an experience to choose another.' : '';
+        reset(); update();
+        for (const input of content.querySelectorAll('input[type=checkbox]')) input.disabled = selected.size >= 5 && !input.checked;
+      });
+      add(title, checkbox, el('strong', experience.name));
+    }
+    const highEffort = experience.recordIds.filter(id => byId.get(id).effort === 'High').length;
+    const supported = provenance.byExperience.get(experience.name)?.supported;
+    add(article, title, el('p', `${experience.kind === 'Established' ? 'Established Trend' : 'Emerging Experience'} · ${experience.count} supporting records · ${experience.domain || 'Outside controlled taxonomy'}`, 'row-meta'),
+      el('p', `High effort: ${highEffort} records · High priority: ${experience.highPriorityCount} records`, 'row-meta'),
+      el('p', supported ? 'Journey Supported' : 'Insufficient Journey Evidence', supported ? 'journey-supported' : 'journey-unavailable'),
+      el('p', supported ? `${provenance.byExperience.get(experience.name).count} synthetic journey records across five ordered stages` : 'Not enough interaction evidence to construct a reliable journey.', 'row-meta'),
+      evidenceAction(`View ${experience.count} supporting comments`, experience.name,
+        oneGroup(experience.recordIds, currentContext() + ' · selected pain-point evidence')));
+    return article;
+  };
+  const renderList = () => {
+    const list = content.querySelector('.pain-point-list'); list.replaceChildren();
+    if (mode !== 'custom') {
+      for (const [i, experience] of candidates.slice(0, Number(mode)).entries()) add(list, card(experience, false, i + 1));
+      if (!candidates.length) add(list, el('p', 'No recurring experiences are represented in this period.', 'empty-state'));
+    } else {
+      const matches = pickerCandidates.filter(row => `${row.name} ${row.domain || ''}`.toLowerCase().includes(search.toLowerCase()));
+      for (const kind of ['Established', 'Emerging']) {
+        const group = el('section'); group.setAttribute('aria-label', `${kind} experiences`);
+        add(group, el('h4', kind === 'Established' ? 'Established Trends' : 'Emerging Experiences'));
+        const rows = matches.filter(row => row.kind === kind);
+        for (const experience of rows) add(group, card(experience, true));
+        if (!rows.length) add(group, el('p', 'No matching experiences.', 'row-meta'));
+        add(list, group);
+      }
+    }
+  };
+  const render = () => {
+    content.replaceChildren();
+    if (mode === 'custom') {
+      const label = el('label', 'Filter experiences', 'experience-filter'); const input = el('input'); input.type = 'search'; input.value = search;
+      input.setAttribute('aria-label', 'Filter experiences');
+      input.addEventListener('input', () => { search = input.value; renderList(); }); add(label, input); add(content, label);
+    }
+    add(content, el('div', undefined, 'pain-point-list')); renderList(); update();
+  };
+  for (const [value, label] of [['3', 'Top 3 Pain Points'], ['5', 'Top 5 Pain Points'], ['custom', 'Select Your Own']]) {
+    const button = el('button', label); button.type = 'button'; button.setAttribute('aria-controls', content.id);
+    button.setAttribute('aria-pressed', String(value === mode));
+    button.addEventListener('click', () => {
+      mode = value; selected = new Set(); search = ''; status.textContent = ''; reset();
+      for (const item of modeButtons) item.button.setAttribute('aria-pressed', String(item.value === mode)); render();
+    });
+    modeButtons.push({ value, button }); add(controls, button);
+  }
+  generate.addEventListener('click', () => {
+    output.replaceChildren(); const chosen = selection();
+    const supported = chosen.map(row => provenance.byExperience.get(row.name)).filter(row => row?.supported);
+    const total = new Set(supported.flatMap(row => row.recordIds)).size;
+    add(output, el('h4', `${supported.length} journey${supported.length === 1 ? '' : 's'} generated`),
+      el('p', `${total} supporting synthetic journey records · ${supported.filter(row => row.status === 'Established').length} Established · ${supported.filter(row => row.status === 'Emerging').length} Emerging`, 'row-meta'));
+    for (const [i, journey] of supported.entries()) {
+      const details = el('details', undefined, 'member-journey'); details.dataset.painPoint = journey.painPoint; details.open = i === 0;
+      add(details, el('summary', `${journey.painPoint} — Current-State Member Journey`));
+      renderMemberJourney(journey, details); add(output, details);
+    }
+    for (const experience of chosen.filter(row => !provenance.byExperience.get(row.name)?.supported)) add(output, el('p', `${experience.name}: Journey unavailable — insufficient interaction sequence evidence.`, 'journey-unavailable'));
+    output.hidden = false; generate.setAttribute('aria-expanded', 'true'); generate.disabled = true;
+    generate.textContent = supported.length === 1 ? 'Journey Map Generated' : 'Journey Maps Generated';
+    status.textContent = `${supported.length} independent journey maps generated.`;
+  });
+  add(section, controls, count, content, generate, note, status, output); add(panel, section); render();
 }
 function setJourneys() {
   document.getElementById('journeySummary').textContent = `${data.journeys.length} experiences ready for current-state journey review`;
   const panel = document.getElementById('journeyPanel');
-  add(panel, el('p', 'Select an experience to review current-state friction, then generate an evidence-backed journey map from the included synthetic feedback.', 'panel-intro'));
+  add(panel, el('p', 'Select an experience to review current-state friction, then generate an evidence-backed friction map from the included synthetic feedback.', 'panel-intro'));
   if (!data.journeys.length) add(panel, el('p', 'No journey evidence is available in this period.', 'empty-state'));
   const choices = el('div', undefined, 'journey-list');
   const target = el('div', undefined, 'journey-display'); target.id = 'journeyDisplay';
@@ -301,21 +472,22 @@ function setJourneys() {
       for (const choice of choices.children) choice.setAttribute('aria-pressed', String(choice === button));
       closeEvidence(false);
       showJourney(journey, target);
-      const action = el('button', 'Generate Journey Map →', 'journey-generate'); action.type = 'button';
+      const action = el('button', 'Generate Friction Map →', 'journey-generate'); action.type = 'button';
       action.setAttribute('aria-controls', 'generatedJourneyMap'); action.setAttribute('aria-expanded', 'false');
       const status = el('p', undefined, 'row-meta'); status.setAttribute('role', 'status');
       const output = el('section', undefined, 'generated-journey-map'); output.id = 'generatedJourneyMap'; output.hidden = true;
-      output.setAttribute('aria-label', `${journey.name} current-state journey map`);
+      output.setAttribute('aria-label', `${journey.name} current-state journey friction map`);
       action.addEventListener('click', () => {
         showJourneyMap(journey, output); output.hidden = false;
-        action.textContent = 'Journey Map Generated'; action.setAttribute('aria-expanded', 'true'); action.disabled = true;
-        status.textContent = `${journey.name} current-state journey map is ready.`;
+        action.textContent = 'Friction Map Generated'; action.setAttribute('aria-expanded', 'true'); action.disabled = true;
+        status.textContent = `${journey.name} current-state journey friction map is ready.`;
       });
       add(target, action, status, output);
     });
     add(choices, button);
   }
-  add(panel, choices, target);
+  setJourneySelection(panel, target, choices);
+  add(panel, el('h4', 'Available current-state friction maps'), choices, target);
 }
 let feedbackShown = 0;
 function showFeedback() {

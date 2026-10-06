@@ -25,3 +25,11 @@ npm test
 ```
 
 The deterministic synthetic fixture generator is available through `npm run generate`; it changes `data/demo-data.js`. The current 1,200-record dataset has been retained unchanged.
+
+## Synthetic journey evidence
+
+`data/journey-provenance.js` contains 150 newly authored synthetic journey-stage records for five existing pain points. It is separate from the retained 1,200-record analysis: journey records never change dashboard totals, experience rankings or original comments. `journey-model.js` filters these records by the selected period and enables a journey only when every ordered stage has at least three supporting records.
+
+Each pain point has six explicitly linked synthetic episodes, five stages per episode, and traceable record IDs. A record date is the episode feedback date; stage order comes from authored sequence metadata, not date inference. Static stage summaries cover touchpoints, sentiment, effort and priority. Member actions and observations are explicitly authored synthetic content, not provider output or retrofitted claims about original comments. No owners, inferred emotions or future-state solutions are included.
+
+Top 3/Top 5 continue ranking the main analysis. Only supported selected experiences generate independent journey maps; unavailable selections remain visible without substitution. Journey evidence counts are clearly separate from analysis totals.
