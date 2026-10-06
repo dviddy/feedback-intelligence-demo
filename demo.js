@@ -262,10 +262,34 @@ function showJourney(journey, target) {
   }
   add(target, list);
 }
+function showJourneyMap(journey, target) {
+  target.replaceChildren();
+  add(target, el('h4', `${journey.name} · Current-State Journey Map`),
+    el('p', 'Evidence-backed friction themes, not a reconstructed individual sequence.', 'panel-intro'));
+  const map = el('ul', undefined, 'journey-map-grid');
+  for (const stage of journey.stages) {
+    const card = el('li', undefined, 'journey-map-card');
+    add(card, el('h4', stage.label),
+      el('p', `${stage.recordIds.length} supporting records`, 'row-meta'),
+      el('p', `${stage.negative} negative · ${stage.highEffort} high effort · ${stage.highPriority} high priority`, 'row-meta'));
+    const details = el('details');
+    add(details, el('summary', 'View current-state detail and evidence'));
+    const rows = stage.recordIds.map(id => byId.get(id));
+    const touchpoints = [...new Set(rows.map(row => row.touchpoint))];
+    if (touchpoints.length) add(details, el('p', `Touchpoints · ${touchpoints.join(' · ')}`, 'row-meta'));
+    if (stage.evidenceIds.length) {
+      add(details, el('p', `Supporting observation · ${byId.get(stage.evidenceIds[0]).text}`, 'row-meta'),
+        evidenceList(stage.evidenceIds), evidenceAction(`View ${stage.recordIds.length} comments`,
+          `${journey.name} / ${stage.label}`, oneGroup(stage.recordIds, currentContext() + ' · current-state journey evidence')));
+    } else add(details, el('p', 'No feedback evidence observed in this period.', 'row-meta'));
+    add(card, details); add(map, card);
+  }
+  add(target, map);
+}
 function setJourneys() {
   document.getElementById('journeySummary').textContent = `${data.journeys.length} experiences ready for current-state journey review`;
   const panel = document.getElementById('journeyPanel');
-  add(panel, el('p', 'Select a journey to inspect current-state friction and exact evidence. Lifecycle assignments and recommendations are not included in this fixture.', 'panel-intro'));
+  add(panel, el('p', 'Select an experience to review current-state friction, then generate an evidence-backed journey map from the included synthetic feedback.', 'panel-intro'));
   if (!data.journeys.length) add(panel, el('p', 'No journey evidence is available in this period.', 'empty-state'));
   const choices = el('div', undefined, 'journey-list');
   const target = el('div', undefined, 'journey-display'); target.id = 'journeyDisplay';
@@ -275,7 +299,19 @@ function setJourneys() {
     add(button, el('strong', journey.name), el('span', `${journey.supportingRecordCount} supporting records · View current-state evidence`));
     button.addEventListener('click', () => {
       for (const choice of choices.children) choice.setAttribute('aria-pressed', String(choice === button));
+      closeEvidence(false);
       showJourney(journey, target);
+      const action = el('button', 'Generate Journey Map →', 'journey-generate'); action.type = 'button';
+      action.setAttribute('aria-controls', 'generatedJourneyMap'); action.setAttribute('aria-expanded', 'false');
+      const status = el('p', undefined, 'row-meta'); status.setAttribute('role', 'status');
+      const output = el('section', undefined, 'generated-journey-map'); output.id = 'generatedJourneyMap'; output.hidden = true;
+      output.setAttribute('aria-label', `${journey.name} current-state journey map`);
+      action.addEventListener('click', () => {
+        showJourneyMap(journey, output); output.hidden = false;
+        action.textContent = 'Journey Map Generated'; action.setAttribute('aria-expanded', 'true'); action.disabled = true;
+        status.textContent = `${journey.name} current-state journey map is ready.`;
+      });
+      add(target, action, status, output);
     });
     add(choices, button);
   }

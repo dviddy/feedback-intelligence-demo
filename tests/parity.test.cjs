@@ -299,3 +299,68 @@ test('No comparison feedback and no Emerging observations have distinct truthful
   assert.match(d.getElementById('emergingPanel').textContent, /No Emerging Experiences/);
   dom.window.close();
 });
+
+test('Journey generation is explicit, static and resets for each selected opportunity', () => {
+  const { dom, d, requests } = browser();
+  assert.equal(d.querySelector('.journey-generate'), null);
+  const choices = [...d.querySelectorAll('.journey-choice')];
+  assert.equal(choices.length, 5);
+  for (let i = 0; i < choices.length; i++) {
+    choices[i].click();
+    const action = d.querySelector('.journey-generate');
+    const output = d.getElementById('generatedJourneyMap');
+    assert.equal(action.tagName, 'BUTTON'); assert.equal(action.type, 'button');
+    assert.equal(action.textContent, 'Generate Journey Map →');
+    assert.equal(action.getAttribute('aria-expanded'), 'false');
+    assert.equal(action.getAttribute('aria-controls'), output.id);
+    assert.equal(output.hidden, true); assert.equal(output.children.length, 0);
+    assert.ok(d.querySelector('#journeyDisplay .evidence-action'));
+    action.focus(); assert.equal(d.activeElement, action);
+    action.click();
+    const journey = project().journeys[i];
+    assert.equal(output.hidden, false);
+    assert.equal(action.getAttribute('aria-expanded'), 'true');
+    assert.equal(action.textContent, 'Journey Map Generated'); assert.equal(action.disabled, true);
+    assert.ok(output.textContent.includes(journey.name));
+    assert.deepEqual([...output.querySelectorAll('.journey-map-card > h4')].map(row => row.textContent), Array.from(journey.stages, stage => stage.label));
+    assert.equal(output.querySelectorAll('.feedback-card').length, 0);
+    assert.ok([...output.querySelectorAll('details')].every(detail => !detail.open));
+    assert.equal(d.querySelector('#journeyDisplay [role="status"]').textContent, `${journey.name} current-state journey map is ready.`);
+  }
+  assert.deepEqual(requests, []); dom.window.close();
+});
+test('Generated journey evidence preserves exact selected-period membership and clears on switching', () => {
+  const { dom, d, custom } = browser(); custom('2026-09-01', '2026-09-30');
+  const journey = project(range(['2026-09-01', '2026-09-30'])).journeys[0];
+  d.querySelector('.journey-choice').click(); d.querySelector('.journey-generate').click();
+  const card = d.querySelector('.journey-map-card'); const details = card.querySelector('details'); details.open = true;
+  card.querySelector('.evidence-action').click();
+  const stage = journey.stages[0];
+  assert.ok(d.getElementById('evidenceHeading').textContent.includes(stage.label));
+  assert.ok([...d.querySelectorAll('#evidenceList .feedback-card')].every(row => {
+    const id = row.querySelector('h3').textContent;
+    return stage.recordIds.includes(id) && /2026-09-/.test(row.textContent);
+  }));
+  d.querySelectorAll('.journey-choice')[1].click();
+  assert.equal(d.getElementById('evidencePanel').hidden, true);
+  assert.equal(d.getElementById('generatedJourneyMap').hidden, true);
+  custom('2026-07-01', '2026-09-30');
+  assert.equal(d.querySelector('.journey-generate'), null);
+  assert.equal(d.getElementById('generatedJourneyMap'), null);
+  dom.window.close();
+});
+test('Generated map exposes only supported themes and record measures without inferred lifecycle or solutions', () => {
+  const { dom, d } = browser();
+  d.querySelector('.journey-choice').click(); d.querySelector('.journey-generate').click();
+  const map = d.getElementById('generatedJourneyMap');
+  assert.match(map.textContent, /not a reconstructed individual sequence/);
+  assert.ok(!/Attempt Access|Enter Account|Complete Intended Task|Proposed Future-State Solution|Member Emotion|Owner/.test(map.textContent));
+  for (const [i, card] of [...map.querySelectorAll('.journey-map-card')].entries()) {
+    const stage = project().journeys[0].stages[i];
+    assert.ok(card.textContent.includes(`${stage.recordIds.length} supporting records`));
+    assert.ok(card.textContent.includes(`${stage.highEffort} high effort`));
+    assert.ok(card.textContent.includes(`${stage.highPriority} high priority`));
+  }
+  assert.match(read('style.css'), /button:focus-visible/);
+  dom.window.close();
+});
