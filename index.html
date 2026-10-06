@@ -10,12 +10,13 @@
   <link rel="stylesheet" href="style.css">
   <script src="data/demo-data.js" defer></script>
   <script src="data/recurring-language.js" defer></script>
+  <script src="presentation.js" defer></script>
   <script src="demo.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
   <header class="site-header"><div class="header-inner">
-    <div class="brand"><strong>Feedback Intelligence</strong><span>Member &amp; Customer Experience Analytics</span></div>
+    <div class="product-mark" aria-hidden="true"><i></i><i></i><i></i></div><div class="brand"><strong>Feedback Intelligence</strong><span>Member &amp; Customer Experience Analytics</span></div>
     <div class="header-note">Demo environment <span aria-hidden="true">·</span> Synthetic feedback data</div>
   </div></header>
   <main id="main" class="shell">
@@ -40,10 +41,17 @@
     <div id="resultsExperience" hidden>
     <div class="results-toolbar"><span>Demo dataset loaded <span aria-hidden="true">·</span> Synthetic feedback</span><button id="newAnalysisButton" type="button">New Analysis</button></div>
     <div class="page-heading"><p class="eyebrow">Executive experience overview</p><h1>See what members are experiencing.</h1>
-      <p>Six months of synthetic feedback, organized into a clearer view of recurring friction and journey opportunities.</p>
-      <div class="period-line"><span>Analysis period</span><strong>Apr 1 – Sep 30, 2026</strong><span>1,200 analyzed feedback records</span></div>
+      <p>Synthetic feedback, organized into established themes, emerging experiences and evidence-backed journey opportunities.</p>
+      <div class="period-line"><span>Analysis period</span><strong id="activePeriod">Apr 1 – Sep 30, 2026</strong><span id="activeTotal">1,200 analyzed feedback records</span></div>
     </div>
-    <section class="summary-section" aria-labelledby="summaryHeading"><div class="section-heading"><div><p class="eyebrow">01 / Overview</p><h2 id="summaryHeading" tabindex="-1">Executive Summary</h2></div><p>Share of analyzed feedback records. One record can contribute to multiple measures.</p></div>
+    <nav class="section-nav" aria-label="Results sections"><a href="#summaryHeading">Executive Summary</a><a href="#visualHeading">Visual Intelligence</a><a href="#intelligenceHeading">Experience Intelligence</a><a href="#journeySectionHeading">Journey Mapping</a><a href="#feedbackHeading">Detailed Feedback</a></nav>
+    <section class="date-controls" aria-labelledby="dateHeading"><h2 id="dateHeading">Date range</h2><p>Dates filter the included synthetic records. Presets end on September 30, 2026, the latest fixture date.</p>
+      <form id="periodForm"><div class="date-fields"><label>Selected period<select id="periodPreset"><option value="all">All Data</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="q3">Jul–Sep 2026</option><option value="custom">Custom dates</option></select></label>
+      <label>From<input id="currentStart" type="date" value="2026-07-01" disabled></label><label>Through<input id="currentEnd" type="date" value="2026-09-30" disabled></label></div>
+      <div class="date-fields"><label class="compare-check"><input id="compareEnabled" type="checkbox" disabled> Compare periods</label><label>Comparison<select id="comparisonPreset" disabled><option value="previous">Previous equal-length period</option><option value="q2">Apr–Jun 2026</option><option value="custom">Custom comparison</option></select></label><label>From<input id="comparisonStart" type="date" value="2026-04-01" disabled></label><label>Through<input id="comparisonEnd" type="date" value="2026-06-30" disabled></label><button type="submit" class="period-apply">Apply dates</button></div></form>
+      <p id="dateStatus" role="status">All 1,200 records have usable dates. Comparison is off.</p><p id="dateError" role="alert" hidden></p>
+    </section>
+    <section class="summary-section" aria-labelledby="summaryHeading"><div class="section-heading"><div><p class="eyebrow">01 / Overview</p><h2 id="summaryHeading" tabindex="-1">Executive Summary</h2></div><p>Selected-period record measures and experience identities. These describe feedback, not all members.</p></div>
       <div id="summaryMetrics" class="metrics" aria-live="polite"></div>
       <details class="summary-detail"><summary>View sentiment, effort and priority distribution</summary><div id="distribution" class="distribution"></div></details>
     </section>
@@ -58,15 +66,16 @@
     </section>
     <section class="intelligence-section" aria-labelledby="intelligenceHeading"><div class="section-heading"><div><p class="eyebrow">03 / Explore</p><h2 id="intelligenceHeading">Experience Intelligence</h2></div><p>Open a topic to examine the supporting synthetic evidence and comparison context.</p></div>
       <div class="module-grid">
-        <article class="module" aria-labelledby="trendsHeading"><h3 id="trendsHeading">Top Trends</h3><p id="trendsSummary" class="module-summary"></p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="trendsPanel">Explore trends</button><div id="trendsPanel" class="module-panel" hidden></div></article>
-        <article class="module" aria-labelledby="movementHeading"><h3 id="movementHeading">Trend Movement</h3><p id="movementSummary" class="module-summary"></p><p class="period-caption">Current: Jul 1 – Sep 30 <span aria-hidden="true">·</span> Comparison: Apr 1 – Jun 30</p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="movementPanel">Explore movement</button><div id="movementPanel" class="module-panel" hidden></div></article>
-        <article class="module" aria-labelledby="emergingHeading"><h3 id="emergingHeading">Emerging Experiences</h3><p id="emergingSummary" class="module-summary"></p><p class="module-note">Taxonomy coverage gaps in analyzed feedback, not a time-based growth measure.</p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="emergingPanel">Explore coverage gaps</button><div id="emergingPanel" class="module-panel" hidden></div></article>
+        <article class="module" aria-labelledby="trendsHeading"><h3 id="trendsHeading">Established Trends</h3><p id="trendsSummary" class="module-summary"></p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="trendsPanel">Explore established trends</button><div id="trendsPanel" class="module-panel" hidden></div></article>
+        <article class="module" aria-labelledby="movementHeading"><h3 id="movementHeading">Trend Movement</h3><p id="movementSummary" class="module-summary"></p><p id="movementPeriod" class="period-caption">Choose a dated period and enable comparison.</p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="movementPanel">Explore movement</button><div id="movementPanel" class="module-panel" hidden></div></article>
+        <article class="module" aria-labelledby="emergingHeading"><h3 id="emergingHeading">Emerging Experiences</h3><p id="emergingSummary" class="module-summary"></p><p class="module-note">Provisional recurring experiences. Emerging describes coverage, not recent growth.</p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="emergingPanel">Explore emerging experiences</button><div id="emergingPanel" class="module-panel" hidden></div></article>
         <article class="module" aria-labelledby="migrationHeading"><h3 id="migrationHeading">Digital → Assisted</h3><p id="migrationSummary" class="module-summary"></p><p class="module-note">Rate applies to eligible analyzed digital-friction feedback records.</p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="migrationPanel">Explore migration</button><div id="migrationPanel" class="module-panel" hidden></div></article>
-        <article class="module module-wide" aria-labelledby="journeyHeading"><h3 id="journeyHeading">Journey Mapping</h3><p id="journeySummary" class="module-summary"></p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="journeyPanel">Explore journeys</button><div id="journeyPanel" class="module-panel" hidden></div></article>
+        <article class="module needs-evidence" aria-labelledby="needsHeading"><h3 id="needsHeading">Needs More Evidence</h3><p id="needsSummary" class="module-summary">Withheld signals stay visible for review.</p><p class="module-note">Intentionally outside confirmed trend reporting.</p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="needsPanel">Understand this category</button><div id="needsPanel" class="module-panel" hidden></div></article>
       </div>
     </section>
+    <section class="journey-section" aria-labelledby="journeySectionHeading"><div class="section-heading"><div><p class="eyebrow">04 / Follow the experience</p><h2 id="journeySectionHeading">Journey Mapping</h2></div><p>Concise current-state opportunities. Supporting evidence appears on expansion.</p></div><article class="module" aria-labelledby="journeyHeading"><h3 id="journeyHeading">Journey opportunities</h3><p id="journeySummary" class="module-summary"></p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="journeyPanel">Explore journeys</button><div id="journeyPanel" class="module-panel" hidden></div></article></section>
     <section id="evidencePanel" class="evidence-panel" aria-labelledby="evidenceHeading" hidden><div class="evidence-header"><div><p class="eyebrow">Supporting feedback</p><h2 id="evidenceHeading">Evidence</h2><p id="evidenceContext"></p></div><button id="closeEvidence" type="button">Close evidence</button></div><div id="evidenceChoices" class="evidence-choices" role="group" aria-label="Evidence subsets" hidden></div><div id="evidenceList"></div><button id="moreEvidence" type="button">Show 20 more comments</button><p id="evidenceCount" class="metadata"></p></section>
-    <section class="feedback-section" aria-labelledby="feedbackHeading"><div><p class="eyebrow">04 / Source detail</p><h2 id="feedbackHeading">Detailed Feedback</h2><p>Individual synthetic records, shown in small batches for review.</p></div><button id="feedbackToggle" type="button" aria-expanded="false" aria-controls="feedbackPanel">View feedback sample</button><div id="feedbackPanel" hidden><div id="feedbackList"></div><button id="moreFeedback" type="button">Show 20 more</button><p id="feedbackCount" class="metadata"></p></div></section>
+    <section class="feedback-section" aria-labelledby="feedbackHeading"><div><p class="eyebrow">05 / Source detail</p><h2 id="feedbackHeading">Detailed Feedback</h2><p>Individual synthetic records, shown in small batches for review.</p></div><button id="feedbackToggle" type="button" aria-expanded="false" aria-controls="feedbackPanel">View feedback sample</button><div id="feedbackPanel" hidden><div id="feedbackList"></div><button id="moreFeedback" type="button">Show 20 more</button><p id="feedbackCount" class="metadata"></p></div></section>
     <footer><span>Feedback Intelligence product demo</span><span>Synthetic, precomputed data <span aria-hidden="true">·</span> Live analysis unavailable</span></footer>
     </div>
   </main>

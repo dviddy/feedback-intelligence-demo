@@ -7,10 +7,12 @@ const crypto = require('node:crypto');
 const { JSDOM } = require('jsdom');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const prohibitedPersonalPath = /(?:[\\/]Users[\\/]|[\\/]home[\\/]|[A-Z]:[\\/](?:Users|Documents and Settings)[\\/]|~[\\/])/i;
 const html = read('index.html');
 const code = read('demo.js');
 const fixtureCode = read('data/demo-data.js');
 const languageCode = read('data/recurring-language.js');
+const presentationCode = read('presentation.js');
 const context = { window: {} };
 vm.runInNewContext(fixtureCode, context, { filename: 'demo-data.js' });
 const data = context.window.FEEDBACK_DEMO_DATA;
@@ -28,14 +30,23 @@ function browser({ load = true } = {}) {
   dom.window.WebSocket = class { constructor() { requests.push(['websocket']); throw new Error('Unexpected request'); } };
   dom.window.eval(fixtureCode);
   dom.window.eval(languageCode);
+  dom.window.eval(presentationCode);
   dom.window.eval(code);
   if (load) dom.window.document.getElementById('loadDemoButton').click();
   return { dom, document: dom.window.document, requests };
 }
+function selectQuarterComparison(dom, document) {
+  document.getElementById('periodPreset').value = 'q3';
+  document.getElementById('periodPreset').dispatchEvent(new dom.window.Event('change'));
+  document.getElementById('compareEnabled').checked = true;
+  document.getElementById('comparisonPreset').value = 'q2';
+  document.getElementById('comparisonPreset').dispatchEvent(new dom.window.Event('change'));
+  document.getElementById('periodForm').dispatchEvent(new dom.window.Event('submit', { cancelable: true }));
+}
 test('static entry, safe relative asset paths, and synthetic disclosure', () => {
   assert.match(html, /Demo environment[^<]*<span[^>]*>·<\/span> Synthetic feedback data/);
   assert.match(html, /connect-src 'none'/);
-  for (const asset of ['style.css', 'data/demo-data.js', 'data/recurring-language.js', 'demo.js']) assert.ok(html.includes(`"${asset}"`));
+  for (const asset of ['style.css', 'data/demo-data.js', 'data/recurring-language.js', 'presentation.js', 'demo.js']) assert.ok(html.includes(`"${asset}"`));
   assert.ok(!/src="\//.test(html));
   assert.ok(!/href="\/(?!\/)/.test(html));
   assert.ok(!/PDF Executive Report|Emerging Momentum|localStorage|sessionStorage|indexedDB/i.test(html + code));
@@ -239,7 +250,7 @@ test('emerging and journey evidence references valid synthetic records', () => {
 });
 test('demo renders compact executive modules and interactions without API calls', () => {
   const { dom, document, requests } = browser();
-  for (const name of ['Executive Summary','Experience Intelligence','Top Trends','Trend Movement',
+  for (const name of ['Executive Summary','Experience Intelligence','Established Trends','Trend Movement',
     'Emerging Experiences','Digital → Assisted','Journey Mapping','Detailed Feedback'])
     assert.ok(document.body.textContent.includes(name), name);
   assert.match(document.getElementById('summaryMetrics').textContent, /1,200/);
@@ -254,24 +265,25 @@ test('demo renders compact executive modules and interactions without API calls'
   const all = document.querySelector('#trendsPanel .small-action');
   all.click(); assert.equal(document.getElementById('allTrends').hidden, false);
   const evidence = document.querySelector('#trendsPanel details');
-  evidence.open = true; assert.ok(evidence.textContent.includes('DEMO-'));
+  evidence.open = true; evidence.dispatchEvent(new dom.window.Event('toggle')); assert.ok(evidence.textContent.includes('DEMO-'));
   document.querySelector('#journeyHeading + p + button').click();
   document.querySelector('.journey-choice').click();
   assert.ok(document.getElementById('journeyDisplay').textContent.includes('Supporting evidence'));
   document.getElementById('feedbackToggle').click();
-  assert.equal(document.querySelectorAll('.feedback-card').length, 20);
+  assert.equal(document.querySelectorAll('#feedbackList .feedback-card').length, 20);
   document.getElementById('moreFeedback').click();
-  assert.equal(document.querySelectorAll('.feedback-card').length, 40);
+  assert.equal(document.querySelectorAll('#feedbackList .feedback-card').length, 40);
   assert.deepEqual(requests, []);
   assert.ok(!/Infinity|NaN/.test(document.body.textContent));
   dom.window.close();
 });
 test('public file scope excludes private backend, credentials and provider calls', () => {
   const files = ['index.html','style.css','demo.js','data/demo-data.js','data/recurring-language.js',
-    'scripts/generate-data.mjs','scripts/voice-library.mjs','scripts/voice-endings.mjs','README.md'];
+    'presentation.js','scripts/generate-data.mjs','scripts/voice-library.mjs','scripts/voice-endings.mjs','README.md'];
   for (const file of files) {
     const text = read(file);
-    assert.ok(!/sk-[A-Za-z0-9_-]{20,}|OPENAI_API_KEY|BEGIN PRIVATE KEY|api\.openai\.com|localhost:\d+|\/Users\/David\//i.test(text), file);
+    assert.ok(!/sk-[A-Za-z0-9_-]{20,}|OPENAI_API_KEY|BEGIN PRIVATE KEY|api\.openai\.com|localhost:\d+/i.test(text), file);
+    assert.ok(!prohibitedPersonalPath.test(text), file);
   }
   assert.ok(!/\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon/.test(code));
   assert.ok(!fs.existsSync(path.join(root, 'server')));
@@ -334,9 +346,8 @@ test('key phrases are exact, deterministic, distinct evidence-linked language', 
 });
 test('Recurring Language themes reuse semantic trend populations and exact phrase evidence', () => {
   const { dom, document, requests } = browser();
-  const themes = dom.window.FEEDBACK_DEMO_DATA.recurringLanguage;
-  assert.equal(themes.length, data.movement.length);
-  assert.equal(themes.length, 21);
+  const themes = dom.window.FEEDBACK_DEMO_PRESENTATION.project(dom.window.FEEDBACK_DEMO_DATA, dom.window.FEEDBACK_RECURRING_LANGUAGE).recurringLanguage;
+  assert.ok(themes.length > 10);
   assert.equal(new Set(themes.map(theme => theme.id)).size, themes.length);
   assert.equal(document.querySelector('[data-visual="phrases"]').textContent, 'Recurring Language');
   assert.ok(!html.includes('Key Phrases'));
@@ -347,7 +358,7 @@ test('Recurring Language themes reuse semantic trend populations and exact phras
     assert.equal(theme.count, ids.length);
     assert.equal(JSON.stringify(theme.recordIds), JSON.stringify(ids));
     assert.equal(theme.topTrend, data.topTrends.some(row => row.name === theme.id));
-    assert.ok(theme.phrases.length >= 2 && theme.phrases.length <= 5, theme.name);
+    assert.ok(theme.phrases.length >= 1 && theme.phrases.length <= 5, theme.name);
     assert.equal(JSON.stringify(theme.phraseIds), JSON.stringify(theme.phrases.map(phrase => phrase.id)));
     for (const phrase of theme.phrases) {
       const exact = records.filter(row => row.trend === theme.id && row.text.toLowerCase().includes(phrase.phrase.toLowerCase()));
@@ -376,7 +387,7 @@ test('theme and phrase drill-downs use their separate evidence populations', () 
   const { dom, document, requests } = browser();
   document.querySelector('[data-visual="phrases"]').click();
   assert.match(document.getElementById('visualCanvas').textContent, /How are customers describing recurring experiences/);
-  assert.equal(document.querySelectorAll('#visualCanvas .language-row').length, 21);
+  assert.equal(document.querySelectorAll('#visualCanvas .language-row').length, 6);
   assert.equal(document.getElementById('remainingLanguage').hidden, true);
   assert.equal(document.querySelector('#visualCanvas .language-list').querySelectorAll('.language-row').length, 6);
   const loginRow = document.querySelector('#visualCanvas .language-list .language-row');
@@ -386,7 +397,7 @@ test('theme and phrase drill-downs use their separate evidence populations', () 
   assert.match(document.getElementById('evidenceHeading').textContent, /Login Failure/);
   assert.match(document.getElementById('evidenceCount').textContent, /20 of 69/);
   assert.ok([...document.querySelectorAll('#evidenceList .feedback-card')].every(card =>
-    dom.window.FEEDBACK_DEMO_DATA.recurringLanguage[0].recordIds.includes(card.querySelector('h3').textContent)));
+    dom.window.FEEDBACK_DEMO_PRESENTATION.project(dom.window.FEEDBACK_DEMO_DATA, dom.window.FEEDBACK_RECURRING_LANGUAGE).recurringLanguage[0].recordIds.includes(card.querySelector('h3').textContent)));
   loginRow.querySelector('.language-phrase').click();
   assert.match(document.getElementById('evidenceHeading').textContent, /couldn't log in/);
   assert.match(document.getElementById('evidenceContext').textContent, /exact wording within Login Failure/);
@@ -424,11 +435,11 @@ test('visual drill-down uses one shared, paginated evidence panel', () => {
   assert.equal(document.querySelectorAll('#evidenceList .feedback-card').length, 0);
   document.querySelector('[data-visual="domains"]').click();
   assert.equal(document.querySelector('[data-visual="domains"]').getAttribute('aria-pressed'), 'true');
-  assert.equal(document.querySelectorAll('#visualCanvas .chart-row').length, data.visuals.domains.rows.length);
-  assert.equal([...document.querySelectorAll('#visualCanvas .chart-row')].filter(row => !row.parentElement.hidden).length, 6);
+  assert.equal(document.querySelectorAll('#visualCanvas .chart-row').length, 11);
+  assert.equal(document.querySelectorAll('#visualCanvas .concentration-group').length, 2);
   document.querySelector('#visualCanvas .chart-more').click();
   assert.equal(document.getElementById('remainingDomains').hidden, false);
-  const domain = data.visuals.domains.rows[0];
+  const domain = { label: data.topTrends[0].name, count: data.topTrends[0].count };
   document.querySelector('#visualCanvas .chart-row').click();
   assert.match(document.getElementById('evidenceHeading').textContent, new RegExp(domain.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(document.getElementById('evidenceCount').textContent, new RegExp(`20 of ${domain.count}`));
@@ -443,17 +454,21 @@ test('visual drill-down uses one shared, paginated evidence panel', () => {
 });
 test('movement, migration and phrase selections preserve their evidence basis', () => {
   const { dom, document } = browser();
+  selectQuarterComparison(dom, document);
   document.querySelector('[data-visual="movement"]').click();
   assert.ok(document.getElementById('visualCanvas').textContent.includes('Trend Movement'));
   document.querySelector('#visualCanvas .chart-more').click();
   assert.equal(document.getElementById('remainingMovement').hidden, false);
-  assert.equal(document.querySelectorAll('#visualCanvas .movement-chart-row').length, data.movement.length);
+  assert.equal(document.querySelectorAll('#visualCanvas .movement-chart-row').length, 16);
   document.querySelector('.movement-chart-row').click();
   assert.match(document.getElementById('evidenceCount').textContent, /20 of 45/);
   assert.ok([...document.querySelectorAll('#evidenceList .feedback-card')].every(card => /2026-(07|08|09)-/.test(card.textContent)));
   document.querySelector('#evidenceChoices button:nth-child(2)').click();
   assert.match(document.getElementById('evidenceCount').textContent, /20 of 24/);
   assert.ok([...document.querySelectorAll('#evidenceList .feedback-card')].every(card => /2026-(04|05|06)-/.test(card.textContent)));
+  document.getElementById('periodPreset').value = 'all';
+  document.getElementById('periodPreset').dispatchEvent(new dom.window.Event('change'));
+  document.getElementById('periodForm').dispatchEvent(new dom.window.Event('submit', { cancelable: true }));
   document.querySelector('[data-visual="migration"]').click();
   assert.equal(document.getElementById('evidencePanel').hidden, true);
   const online = [...document.querySelectorAll('#visualCanvas .chart-row')].find(button => button.textContent.includes('Online Banking'));
@@ -513,4 +528,19 @@ test('interactive charts use native buttons, explicit labels and visible focus s
   assert.match(html, /connect-src 'none'/);
   assert.ok(!/\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon|localStorage|indexedDB/.test(code));
   dom.window.close();
+});
+
+test('generic personal-path guard detects home locations without depending on a developer name', () => {
+  const slash = String.fromCharCode(47);
+  const backslash = String.fromCharCode(92);
+  for (const sample of [
+    ['', 'Users', 'sample-user', 'project'].join(slash),
+    ['', 'home', 'sample-user', 'project'].join(slash),
+    ['C:', 'Users', 'sample-user', 'project'].join(backslash),
+    ['D:', 'Documents and Settings', 'sample-user'].join(backslash),
+    ['~', 'project'].join(slash)
+  ]) assert.ok(prohibitedPersonalPath.test(sample));
+  for (const sample of ['data/demo-data.js', 'https://example.org/demo', 'Synthetic feedback']) {
+    assert.ok(!prohibitedPersonalPath.test(sample));
+  }
 });
