@@ -117,12 +117,79 @@ function setSummary() {
       label, groups || oneGroup(ids, currentContext())));
     add(document.getElementById('summaryMetrics'), card);
   }
-  for (const [title, counts] of [['Sentiment', summary.sentiment], ['Effort', summary.effort], ['Priority', summary.priority]]) {
-    const group = el('div'); add(group, el('h3', title));
-    for (const [label, count] of Object.entries(counts)) add(group, el('p', `${label}: ${format(count)} · ${percent(count, summary.total, 1)}`));
-    add(document.getElementById('distribution'), group);
+  renderBreakdowns(document.getElementById('distribution'));
+  renderPositiveSignals();
+}
+// All shares display existing counts; unrounded fractions determine visual widths.
+function renderBreakdowns(target, chartControls = false) {
+  const total = data.summary.total;
+  add(target, el('p', `Each bar represents all ${format(total)} selected-period analyzed feedback records. Percentages are rounded to one decimal; totals may differ slightly. Select a label to inspect its evidence.`, 'chart-note'));
+  const list = el('div', undefined, 'feedback-breakdowns');
+  for (const [field, title, labels] of [['sentiment','Sentiment',['Positive','Neutral','Negative']], ['effort','Effort',['Low','Medium','High']], ['priority','Priority',['Low','Medium','High']]]) {
+    const group = el('section', undefined, 'feedback-breakdown'); group.dataset.dimension = field;
+    add(group, el('h4', title));
+    const track = el('div', undefined, 'stacked-track'); track.setAttribute('role', 'img');
+    track.setAttribute('aria-label', `${title}: ` + labels.map(label => `${label}, ${data.summary[field][label]} records, ${percent(data.summary[field][label], total, 1)} of selected-period analyzed feedback`).join('; '));
+    const choices = el('div', undefined, 'breakdown-choices');
+    for (const [i,label] of labels.entries()) {
+      const count = data.summary[field][label];
+      const tone = field === 'sentiment' ? ['positive','neutral','negative'][i] : field === 'priority' ? ['neutral','warning','negative'][i] : ['positive','warning','negative'][i];
+      const segment = el('span', undefined, `share-segment tone-${tone}`); segment.dataset.category = label; segment.setAttribute('aria-hidden', 'true');
+      segment.style.width = `${total ? count / total * 100 : 0}%`; add(track, segment);
+      const button = el('button', undefined, `breakdown-choice${chartControls ? ' chart-row' : ''}`); button.type = 'button';
+      button.dataset.category = label; button.dataset.count = count;
+      button.setAttribute('aria-label', field === 'sentiment' ? `View ${count} ${label} comments` : `View ${count} ${label} ${field} comments`);
+      button.setAttribute('aria-description', `${percent(count, total, 1)} of selected-period analyzed feedback`);
+      const name = el('span', undefined, 'breakdown-name'); add(name, el('i', undefined, `share-key tone-${tone}`), el('span', label));
+      name.firstChild.setAttribute('aria-hidden', 'true');
+      add(button, name, el('span', `${format(count)} · ${percent(count, total, 1)}`, 'breakdown-value'));
+      button.addEventListener('click', () => openEvidence(`${label} ${field}`, oneGroup(records.filter(r => r[field] === label).map(r => r.id), currentContext() + ` · ${field} classification`), button));
+      add(choices, button);
+    }
+    add(group, track, choices); add(list, group);
+  }
+  add(target, list);
+  if (!total) add(target, el('p', 'No selected-period feedback; shares are unavailable.', 'empty-state'));
+}
+function renderPositiveSignals() {
+  const target = document.getElementById('positiveSignals'); target.replaceChildren();
+  const heading = el('h3', 'Positive Experience Signals'); heading.id = 'positiveSignalsHeading';
+  add(target, heading);
+  if (!data.summary.total) { add(target, el('p', 'No selected-period feedback; positive signals are unavailable.', 'row-meta')); return; }
+  const list = el('div', undefined, 'positive-signal-list');
+  for (const [label,field,value] of [['Positive Sentiment','sentiment','Positive'],['Low Effort','effort','Low']]) {
+    const count = data.summary[field][value]; if (!count) continue;
+    const item = el('div', undefined, 'positive-signal'); item.dataset.signal = field;
+    add(item, el('h4', label), el('strong', `${format(count)} records · ${percent(count, data.summary.total, 1)}`), el('span', 'of selected-period feedback', 'row-meta'),
+      evidenceAction('View supporting feedback', label, oneGroup(records.filter(r => r[field] === value).map(r => r.id), currentContext() + ` · ${label}`)));
+    add(list, item);
+  }
+  if (!list.children.length) add(list, el('p', 'No Positive sentiment or Low effort records observed in this period.', 'row-meta'));
+  add(target, list);
+}
+function movementHighlights() {
+  if (!data.comparisonAvailable) return [];
+  return ['Increasing','Decreasing'].map(label => data.movement.filter(row => row.label === label && Number.isFinite(row.percentageChange))
+    .sort((a,b) => Math.abs(b.percentageChange) - Math.abs(a.percentageChange) || b.currentCount - a.currentCount || a.name.localeCompare(b.name))[0]).filter(Boolean);
+}
+function renderMovementSignals() {
+  const target = document.getElementById('movementSignals'); target.replaceChildren();
+  if (!data.comparisonAvailable) {
+    add(target, el('p', 'Select two nonoverlapping periods with feedback to evaluate movement.', 'row-meta')); return;
+  }
+  const highlights = movementHighlights();
+  if (!highlights.length) add(target, el('p', 'No increasing or decreasing trends in this comparison. Explore the descriptive states below.', 'row-meta'));
+  for (const row of highlights) {
+    const item = el('div', undefined, `movement-signal ${row.label.toLowerCase()}`); item.dataset.experience = row.name; item.dataset.state = row.label;
+    add(item, el('span', row.label === 'Increasing' ? 'Needs Attention' : 'Decreasing', 'signal-label'),
+      el('strong', `${row.label === 'Increasing' ? '↑' : '↓'} ${row.name}`),
+      el('span', `${row.percentageChange > 0 ? '+' : ''}${row.percentageChange.toFixed(1)}% record-count change`, 'signal-change'),
+      el('p', `${row.currentCount} current · ${row.comparisonCount} comparison records. Change is relative to this experience’s comparison-period count.`, 'row-meta'),
+      evidenceAction('Compare supporting evidence', row.name, movementGroups(row)));
+    add(target, item);
   }
 }
+
 function installToggles() {
   for (const button of document.querySelectorAll('.module-toggle, #feedbackToggle')) button.addEventListener('click', () => {
     const panel = document.getElementById(button.getAttribute('aria-controls'));
@@ -197,7 +264,9 @@ function setMovement() {
   const counts = data.movement.reduce((map, item) => { map[item.label] = (map[item.label] || 0) + 1; return map; }, {});
   const note = data.comparisonAvailable ? `${counts.Increasing || 0} increasing · ${counts.Stable || 0} stable · ${counts.Decreasing || 0} decreasing · ${counts['New in selected comparison window'] || 0} new · ${counts['No longer observed in selected current period'] || 0} no longer observed` :
     scope.comparison ? 'No comparison available for these periods' : 'Choose dates and enable comparison to see movement';
-  document.getElementById('movementSummary').textContent = note;
+  document.getElementById('movementSummary').textContent = data.comparisonAvailable ? note : 'Comparison unavailable';
+  renderMovementSignals();
+  document.getElementById('movementPeriod').hidden = !scope.comparison;
   document.getElementById('movementPeriod').textContent = scope.comparison ? `Current: ${dateLabel(scope.current)} · Comparison: ${dateLabel(scope.comparison)}` : 'Comparison is off';
   const panel = document.getElementById('movementPanel');
   add(panel, el('p', `Current period: ${data.periodTotals.current} records · Comparison period: ${data.periodTotals.comparison} records. Prevalence uses each period’s analyzed feedback total.`, 'panel-intro'));
@@ -553,7 +622,8 @@ function chartRow(label, value, max, onSelect, options = {}) {
   button.type = 'button';
   button.setAttribute('aria-label', options.accessibleLabel || `View ${format(value)} comments for ${label}`);
   const header = el('span', undefined, 'chart-label');
-  add(header, el('span', label), el('span', format(value)));
+  add(header, el('span', label), el('span', options.valueText || format(value)));
+  if (options.subline) button.setAttribute('aria-description', [options.valueText, options.subline].filter(Boolean).join(' · '));
   const track = el('span', undefined, 'chart-track'); track.setAttribute('aria-hidden', 'true');
   const fill = el('span', undefined, `chart-fill ${options.color || ''}`);
   fill.style.width = `${max ? 100 * value / max : 0}%`;
@@ -575,26 +645,25 @@ function pairedRow(item, max) {
     fill.style.width = `${max ? 100 * count / max : 0}%`;
     add(track, fill); add(line, el('span', label), track, el('span', format(count))); add(bars, line);
   }
-  add(button, bars, el('span', 'View current and comparison comments', 'chart-subline'));
+  const shares = `Current: ${percent(item.currentCount, data.periodTotals.current, 1)} of current-period analyzed feedback · Prior: ${percent(item.comparisonCount, data.periodTotals.comparison, 1)} of comparison-period analyzed feedback. View supporting comments.`;
+  button.setAttribute('aria-description', shares);
+  add(button, bars, el('span', shares, 'chart-subline'));
   button.addEventListener('click', () => openEvidence(item.name, movementGroups(item), button));
   return button;
 }
 function renderSentiment(canvas) {
-  const visual = data.visuals.sentiment;
-  const list = el('div', undefined, 'chart-list');
-  for (const row of visual.rows) add(list, chartRow(row.label, row.count, data.summary.total,
-    source => openEvidence(`${row.label} sentiment`, oneGroup(row.recordIds, currentContext() + ' · sentiment classification'), source),
-    { color: row.label.toLowerCase(), subline: `${percent(row.count, data.summary.total, 1)} of analyzed feedback`,
-      accessibleLabel: `View ${row.count} ${row.label} comments` }));
-  add(canvas, list);
+  add(canvas, el('p', 'Sentiment, effort and priority · three separate feedback dimensions', 'breakdown-intro'));
+  renderBreakdowns(canvas, true);
 }
+
 function renderDomains(canvas) {
+  add(canvas, el('p', `100% of each track represents all ${format(data.summary.total)} selected-period analyzed feedback records. Experience shares are not a partition of all feedback.`, 'chart-note concentration-denominator'));
   for (const [title, rows] of [['Established Trends', data.established], ['Emerging Experiences', data.emerging.filter(row => row.count >= 2).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))]]) {
     const section = el('section', undefined, 'concentration-group'); add(section, el('h4', title));
     if (!rows.length) add(section, el('p', `No ${title} meet the recurring threshold in this period.`, 'empty-state'));
-    const make = row => chartRow(row.name, row.count, Math.max(...rows.map(item => item.count), 1),
+    const make = row => chartRow(row.name, row.count, data.summary.total,
       source => openEvidence(row.name, oneGroup(row.recordIds, currentContext() + ' · ' + title), source),
-      { subline: `${percent(row.count, records.length, 1)} of selected feedback`, accessibleLabel: `View ${row.count} comments for ${row.name} · ${title}` });
+      { valueText: `${format(row.count)} records · ${percent(row.count, records.length, 1)}`, subline: 'of selected-period analyzed feedback', accessibleLabel: `View ${row.count} comments for ${row.name} · ${title}` });
     const list = el('div', undefined, 'chart-list');
     for (const row of rows.slice(0, 6)) add(list, make(row));
     add(section, list);
@@ -631,19 +700,26 @@ function renderMovementVisual(canvas) {
     more.setAttribute('aria-expanded', String(!remainder.hidden));
     if (!remainder.hidden && !remainder.dataset.loaded) { for (const row of data.movement.slice(5)) add(remainder, pairedRow(row, max)); remainder.dataset.loaded = 'true'; }
   });
-  add(canvas, more, remainder, el('p', `Current: ${dateLabel(scope.current)} · Comparison: ${dateLabel(scope.comparison)}. Bars show counts; prevalence is available in Experience Intelligence.`, 'chart-note'),
+  add(canvas, more, remainder, el('p', `Current: ${dateLabel(scope.current)} · Comparison: ${dateLabel(scope.comparison)}. Bars compare record counts; each share uses its own period’s analyzed-feedback total.`, 'chart-note'),
     el('p', 'Possible movement states: increasing · decreasing · stable · new · no longer observed. Zero observations do not imply resolution.', 'chart-note'));
 }
 function renderMigrationVisual(canvas) {
   const migration = data.migration;
   if (!migration.eligible || !migration.migrated) add(canvas, el('p', !migration.eligible ? 'No eligible digital-friction evidence; rate unavailable.' : 'No validated assisted contact in this period.', 'empty-state'));
-  add(canvas, el('h4', 'Eligible digital-friction origins'));
+  const headline = el('div', undefined, 'migration-headline');
+  add(headline, el('strong', `${migration.migrated} of ${migration.eligible} eligible digital-friction records`),
+    el('p', migration.eligible ? `${percent(migration.migrated, migration.eligible, 1)} moved to assisted support` : 'Rate unavailable without eligible digital-friction records', 'migration-rate'));
+  const track = el('div', undefined, 'chart-track migration-progress'); track.setAttribute('role', 'img');
+  track.setAttribute('aria-label', `${migration.migrated} of ${migration.eligible} eligible digital-friction records include validated assisted contact; ${percent(migration.migrated, migration.eligible, 1)}`);
+  const fill = el('span', undefined, 'chart-fill'); fill.style.width = `${migration.eligible ? migration.migrated / migration.eligible * 100 : 0}%`; add(track, fill);
+  add(headline, track, el('p', 'Share of analyzed feedback records with evidenced digital friction that also include validated movement to assisted support. Not a percentage of all customers, members or interactions.', 'chart-note'));
+  add(canvas, headline, el('h4', 'Eligible digital-friction origins'));
   const origins = el('div', undefined, 'chart-list');
   for (const row of migration.origins) add(origins, chartRow(row.name, row.eligible, migration.eligible,
     source => openEvidence(`${row.name} digital origin`, [
       { label: 'Eligible', recordIds: row.eligibleRecordIds, context: currentContext() + ' · eligible digital friction' },
       { label: 'Migrated', recordIds: row.migratedRecordIds, context: currentContext() + ' · validated assisted contact' }
-    ], source), { subline: `${row.migrated} of these records sought assisted help`,
+    ], source), { valueText: `${format(row.eligible)} records · ${percent(row.eligible, migration.eligible, 1)}`, subline: `of eligible digital-friction records · ${row.migrated} of these records sought assisted help`,
       accessibleLabel: `View ${row.eligible} eligible ${row.name} origin records; ${row.migrated} migrated` }));
   add(canvas, origins, el('p', 'Origins count eligible feedback, including records that did not migrate.', 'chart-note'),
     el('h4', 'Assisted destinations among migrated records'));
@@ -651,7 +727,7 @@ function renderMigrationVisual(canvas) {
   for (const row of migration.destinations) add(destinations, chartRow(row.name, row.migrated, migration.migrated,
     source => openEvidence(`${row.name} assisted destination`, oneGroup(row.recordIds,
       currentContext() + ' · validated assisted contact'), source),
-    { accessibleLabel: `View ${row.migrated} migrated comments with ${row.name} destination` }));
+    { valueText: `${format(row.migrated)} transitions · ${percent(row.migrated, migration.migrated, 1)}`, subline: 'of assisted transitions', accessibleLabel: `View ${row.migrated} migrated comments with ${row.name} destination` }));
   add(canvas, destinations, el('p', 'The rate and distributions refer to eligible analyzed feedback records, not all members.', 'chart-note'));
 }
 function languageRow(theme) {
@@ -702,8 +778,8 @@ function renderVisual(name) {
   const canvas = document.getElementById('visualCanvas');
   canvas.replaceChildren();
   const spec = name === 'phrases' ? languageConfig : data.visuals[name];
-  add(canvas, el('h3', spec.title), el('p', spec.question, 'visual-question'),
-    el('p', spec.caption, 'visual-caption'));
+  add(canvas, el('h3', spec.title), el('p', spec.question, 'visual-question'));
+  if (name !== 'migration') add(canvas, el('p', spec.caption, 'visual-caption'));
   ({ sentiment: renderSentiment, domains: renderDomains, movement: renderMovementVisual,
     migration: renderMigrationVisual, phrases: renderRecurringLanguage })[name](canvas);
   for (const button of document.querySelectorAll('[data-visual]'))
@@ -730,7 +806,7 @@ function activateWorkspace(key, focus = true) {
   activeWorkspace = key; results.dataset.workspace = key;
   results.classList.toggle('journey-workspace', key === 'journey-mapping');
   for (const [name, view] of workspaceViews) view.hidden = name !== key;
-  for (const link of document.querySelectorAll('.section-nav [data-workspace]')) {
+  for (const link of document.querySelectorAll('.section-nav [data-workspace]:not(.sidebar-home)')) {
     if (link.dataset.workspace === key) link.setAttribute('aria-current', 'location');
     else link.removeAttribute('aria-current');
   }
@@ -756,7 +832,8 @@ function activateWorkspace(key, focus = true) {
 }
 function navigateWorkspace(key) {
   if (window.location.hash !== '#' + key) window.history.pushState(null, '', '#' + key);
-  activateWorkspace(key);
+  if (document.getElementById('resultsExperience').hidden) document.getElementById('loadDemoButton').click();
+  else activateWorkspace(key);
 }
 document.querySelector('.skip-link').addEventListener('click', event => {
   event.preventDefault(); document.getElementById('main').focus({preventScroll:true});
