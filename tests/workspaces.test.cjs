@@ -19,6 +19,14 @@ function app(hash = '') {
 }
 test('Seven independent workspaces expose exactly one primary view and one active navigation item', () => {
   const {dom,d,nav,visible} = app();
+  assert.equal(d.querySelector('.section-nav a').textContent,'Executive Summary');
+  assert.equal(d.querySelector('.section-nav .sidebar-home'),null);
+  assert.equal(d.querySelector('.brand-home strong').textContent,'Feedback Intelligence');
+  const themes=d.querySelector('.section-nav [data-workspace="recurring-language"]');
+  assert.equal(themes.textContent,'Recurring Themes');
+  assert.equal(themes.getAttribute('href'),'#recurring-language');
+  assert.equal(d.getElementById('languageHeading').textContent,'Recurring Themes');
+  assert.equal(d.querySelector('[data-visual="phrases"]').textContent,'Recurring Language');
   for (const key of keys) {
     nav(key);assert.deepEqual(visible(),[key]); assert.equal(dom.window.location.hash,'#'+key);
     const current=d.querySelectorAll('.section-nav [aria-current]');assert.equal(current.length,1);assert.equal(current[0].dataset.workspace,key);
