@@ -475,3 +475,29 @@ h2,.visual-overview h2 { font-size:28px; letter-spacing:-.65px; }
  .journey-workspace .journey-kpi-value { font-size:28px; }
  .journey-workspace .journey-kpi-strip > div:nth-child(3) { border-left:0; }
 }
+
+/* PD.2I — one retained primary workspace within the shared executive shell. */
+#resultsExperience > .page-heading { display:none; }
+[data-workspace-view][hidden],#workspaceDates[hidden] { display:none!important; }
+#resultsExperience > [data-workspace-view] { margin-top:0; }
+.shell:has(#resultsExperience:not([hidden])) { padding-top:24px; }
+#resultsExperience .results-toolbar { margin-bottom:16px; padding-bottom:10px; }
+.workspace-date-context { border:0; padding:0 0 18px; margin:0 0 20px; border-bottom:1px solid var(--line); }
+.workspace-date-context > summary { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; min-height:44px; color:var(--muted); font-size:12px; cursor:pointer; list-style:none; }
+.workspace-date-context > summary::-webkit-details-marker { display:none; }
+.workspace-date-context strong { color:var(--navy); font-size:13px; font-weight:600; }
+.workspace-date-context .date-controls { margin-top:10px; padding:16px 0 0; border-bottom:0; }
+#resultsExperience > .visual-section { padding-top:0; border-top:0; }
+#resultsExperience > .about-section { border-top:0; padding-top:0; }
+#resultsExperience > footer { margin-top:32px; }
+.journey-workspace > footer { display:flex; }
+.summary-experiences { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:32px; margin-top:28px; }
+.summary-experience { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); }
+.summary-experience strong { font-size:14px; font-weight:600; color:var(--navy); }
+.summary-experience .evidence-action { flex-shrink:0; font-size:12px; }
+.workspace-next { display:flex; flex-wrap:wrap; gap:12px 28px; margin:22px 0; font-size:13px; font-weight:600; }
+.language-section .section-heading { margin-bottom:20px; }
+@media(max-width:800px) {
+ .summary-experiences { grid-template-columns:1fr; gap:20px; }
+ .summary-experience { flex-wrap:wrap; gap:4px 12px; }
+}

@@ -580,10 +580,11 @@ test('Section navigation opens recurring language and exposes the synthetic meth
   const recurring = d.querySelector('[data-section-visual="phrases"]');
   recurring.click();
   assert.equal(d.getElementById('visualPanel').hidden, false);
-  assert.equal(d.querySelector('[data-visual="phrases"]').getAttribute('aria-pressed'), 'true');
-  assert.ok(d.querySelectorAll('.language-row').length > 0);
+  assert.equal(d.querySelector('[data-workspace-view="recurring-language"]').hidden, false);
+  assert.equal(d.querySelector('.visual-section').hidden, true);
+  assert.ok(d.querySelectorAll('#languageCanvas .language-row').length > 0);
   assert.equal(recurring.getAttribute('aria-current'), 'location');
-  const about = d.querySelector('.section-nav a[href="#aboutHeading"]');
+  const about = d.querySelector('.section-nav a[href="#about"]');
   about.click();
   assert.equal(about.getAttribute('aria-current'), 'location');
   assert.equal(recurring.hasAttribute('aria-current'), false);
@@ -601,7 +602,7 @@ test('Journey workspace reuses the date form and restores other sections without
   const dates = d.querySelector('.date-controls'), form = d.getElementById('periodForm');
   const otherSections = ['.summary-section', '.visual-section', '.intelligence-section', '.feedback-section', '.about-section'];
   const before = otherSections.map(selector => d.querySelector(selector).innerHTML);
-  const journeyLink = d.querySelector('.section-nav a[href="#journeySectionHeading"]'); journeyLink.click();
+  const journeyLink = d.querySelector('.section-nav a[href="#journey-mapping"]'); journeyLink.click();
   assert.ok(d.getElementById('resultsExperience').classList.contains('journey-workspace'));
   assert.equal(d.getElementById('journeyDateSlot').firstElementChild, dates);
   assert.equal(d.querySelectorAll('#periodForm').length, 1); assert.equal(d.getElementById('periodForm'), form);
@@ -613,14 +614,14 @@ test('Journey workspace reuses the date form and restores other sections without
   assert.deepEqual([...d.querySelectorAll('.journey-kpi-value')].map(node => node.textContent), ['230', '15', '5', '230']);
   assert.equal(d.getElementById('journeyPeriod').textContent, d.getElementById('activePeriod').textContent);
   assert.equal(d.getElementById('journeyDateSlot').firstElementChild, dates);
-  d.querySelector('.section-nav a[href="#summaryHeading"]').click();
+  d.querySelector('.section-nav a[href="#executive-summary"]').click();
   assert.equal(d.getElementById('resultsExperience').classList.contains('journey-workspace'), false);
-  assert.equal(dates.nextElementSibling, d.querySelector('.summary-section'));
+  assert.equal(dates.parentElement, d.getElementById('workspaceDateSlot'));
   assert.equal(d.getElementById('journeyDateSlot').children.length, 0);
   d.getElementById('journeySectionHeading').focus(); assert.ok(d.getElementById('resultsExperience').classList.contains('journey-workspace'));
   d.getElementById('newAnalysisButton').click();
   assert.equal(d.getElementById('resultsExperience').classList.contains('journey-workspace'), false);
-  assert.equal(dates.nextElementSibling, d.querySelector('.summary-section'));
+  assert.equal(dates.parentElement, d.getElementById('workspaceDateSlot'));
   assert.deepEqual(requests, []); dom.window.close();
 });
 

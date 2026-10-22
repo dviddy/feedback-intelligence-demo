@@ -137,6 +137,19 @@ function installToggles() {
     button.dataset.open = button.textContent.replace(/^Explore/, 'Hide').replace(/^View/, 'Hide');
   }
 }
+function renderSummaryExperiences() {
+  const target = document.getElementById('summaryExperiences'); target.replaceChildren();
+  for (const [label, rows] of [['Leading Established Trends', data.topTrends], ['Emerging Experiences', data.emerging.filter(row => row.count >= 2).sort((a,b) => b.count-a.count || a.name.localeCompare(b.name))]]) {
+    const section = el('section'); add(section, el('h3', label));
+    for (const row of rows.slice(0, 3)) {
+      const item = el('div', undefined, 'summary-experience');
+      add(item, el('strong', row.name), evidenceAction(`${row.count} supporting records`, row.name, oneGroup(row.recordIds, currentContext() + ' · ' + label)));
+      add(section, item);
+    }
+    if (!rows.length) add(section, el('p', 'No recurring experiences in this selected period.', 'row-meta'));
+    add(target, section);
+  }
+}
 function makeTrendRow(trend) {
   const row = el('li', undefined, 'data-row');
   const heading = el('div', undefined, 'row-heading');
@@ -672,7 +685,7 @@ function renderRecurringLanguage(canvas) {
   const list = el('div', undefined, 'language-list');
   for (const theme of themes.slice(0, 6)) add(list, languageRow(theme));
   add(canvas, list);
-  const remainder = el('div', undefined, 'language-list'); remainder.id = 'remainingLanguage'; remainder.hidden = true;
+  const remainder = el('div', undefined, 'language-list'); remainder.id = canvas.id === 'languageCanvas' ? 'remainingWorkspaceLanguage' : 'remainingLanguage'; remainder.hidden = true;
   if (themes.length > 6) {
     const more = el('button', 'View all recurring language', 'chart-more');
     more.type = 'button'; more.setAttribute('aria-expanded', 'false'); more.setAttribute('aria-controls', remainder.id);
@@ -696,34 +709,74 @@ function renderVisual(name) {
   for (const button of document.querySelectorAll('[data-visual]'))
     button.setAttribute('aria-pressed', String(button.dataset.visual === name));
 }
+// Workspace navigation changes visibility only; intelligence and local view state stay in place.
 const dateControls = document.querySelector('.date-controls');
-const dateHome = document.createComment('Original date controls location');
-dateControls.before(dateHome);
-function setJourneyWorkspace(active) {
+const workspaceViews = new Map([...document.querySelectorAll('[data-workspace-view]')].map(view => [view.dataset.workspaceView, view]));
+const legacyWorkspaces = { summaryHeading:'executive-summary', visualHeading:'visual-intelligence', intelligenceHeading:'experience-intelligence', journeySectionHeading:'journey-mapping', feedbackHeading:'detailed-feedback', aboutHeading:'about', languageHeading:'recurring-language' };
+let activeWorkspace = null;
+function workspaceFromHash() {
+  const hash = window.location.hash.slice(1);
+  return workspaceViews.has(hash) ? hash : Object.hasOwn(legacyWorkspaces, hash) ? legacyWorkspaces[hash] : 'executive-summary';
+}
+function renderLanguageWorkspace() {
+  const canvas = document.getElementById('languageCanvas');
+  canvas.replaceChildren(); renderRecurringLanguage(canvas); canvas.dataset.loaded = 'true';
+}
+function activateWorkspace(key, focus = true) {
+  if (!workspaceViews.has(key)) key = 'executive-summary';
   const results = document.getElementById('resultsExperience');
-  results.classList.toggle('journey-workspace', active);
-  const journeyLink = document.querySelector('.section-nav a[href="#journeySectionHeading"]');
-  if (active) {
-    for (const item of document.querySelectorAll('.section-nav a')) item.removeAttribute('aria-current');
-    journeyLink.setAttribute('aria-current', 'location');
-  } else if (journeyLink.hasAttribute('aria-current')) {
-    journeyLink.removeAttribute('aria-current');
-    const destination = [...document.querySelectorAll('.section-nav a')].find(item => item.hash === window.location.hash && item !== journeyLink) || document.querySelector('.section-nav a');
-    destination.setAttribute('aria-current', 'location');
+  const changed = activeWorkspace !== key;
+  if (changed) closeEvidence(false);
+  activeWorkspace = key; results.dataset.workspace = key;
+  results.classList.toggle('journey-workspace', key === 'journey-mapping');
+  for (const [name, view] of workspaceViews) view.hidden = name !== key;
+  for (const link of document.querySelectorAll('.section-nav [data-workspace]')) {
+    if (link.dataset.workspace === key) link.setAttribute('aria-current', 'location');
+    else link.removeAttribute('aria-current');
   }
-  const dates = document.getElementById('journeyDates');
-  if (active) {
-    document.getElementById('journeyDateSlot').append(dateControls);
+  const isJourney = key === 'journey-mapping';
+  document.getElementById('workspaceDates').hidden = isJourney;
+  document.getElementById(isJourney ? 'journeyDateSlot' : 'workspaceDateSlot').append(dateControls);
+  if (isJourney) {
     document.getElementById('journeyPanel').hidden = false;
-    const toggle = document.querySelector('[aria-controls="journeyPanel"]'); toggle.setAttribute('aria-expanded', 'true'); toggle.textContent = 'Hide journeys';
-  } else {
-    dateHome.after(dateControls); dates.open = false;
+    const toggle = document.querySelector('[aria-controls="journeyPanel"]');
+    toggle.setAttribute('aria-expanded', 'true'); toggle.textContent = 'Hide journeys';
+  }
+  if (key === 'recurring-language' && !document.getElementById('languageCanvas').dataset.loaded) renderLanguageWorkspace();
+  if (key === 'detailed-feedback' && !document.getElementById('feedbackPanel').dataset.loaded) {
+    showFeedback(); document.getElementById('feedbackPanel').dataset.loaded = 'true';
+    document.getElementById('feedbackPanel').hidden = false;
+    const toggle = document.getElementById('feedbackToggle'); toggle.setAttribute('aria-expanded', 'true'); toggle.textContent = 'Hide feedback';
+  }
+  if (focus && !results.hidden) {
+    const heading = workspaceViews.get(key).querySelector('h2');
+    heading.focus({preventScroll:true});
+    document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
   }
 }
-window.addEventListener('hashchange', () => {
-  setJourneyWorkspace(window.location.hash === '#journeySectionHeading');
+function navigateWorkspace(key) {
+  if (window.location.hash !== '#' + key) window.history.pushState(null, '', '#' + key);
+  activateWorkspace(key);
+}
+document.querySelector('.skip-link').addEventListener('click', event => {
+  event.preventDefault(); document.getElementById('main').focus({preventScroll:true});
+  document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
 });
-document.getElementById('journeySectionHeading').addEventListener('focus', () => setJourneyWorkspace(true));
+document.addEventListener('click', event => {
+  const link = event.target.closest('a[data-workspace]');
+  if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault(); navigateWorkspace(link.dataset.workspace);
+});
+function restoreWorkspace() {
+  if (document.getElementById('resultsExperience').hidden) return;
+  const key = workspaceFromHash();
+  if (key !== activeWorkspace) activateWorkspace(key);
+}
+window.addEventListener('hashchange', restoreWorkspace);
+window.addEventListener('popstate', restoreWorkspace);
+document.getElementById('journeySectionHeading').addEventListener('focus', () => {
+  if (activeWorkspace !== 'journey-mapping') navigateWorkspace('journey-mapping');
+});
 function setVisuals() {
   const toggle = document.getElementById('visualToggle');
   const panel = document.getElementById('visualPanel');
@@ -734,15 +787,6 @@ function setVisuals() {
   });
   for (const button of document.querySelectorAll('[data-visual]'))
     button.addEventListener('click', () => renderVisual(button.dataset.visual));
-  for (const link of document.querySelectorAll('[data-section-visual]')) link.addEventListener('click', () => {
-    panel.hidden = false; toggle.setAttribute('aria-expanded', 'true'); toggle.textContent = 'Hide visuals';
-    renderVisual(link.dataset.sectionVisual);
-  });
-  for (const link of document.querySelectorAll('.section-nav a')) link.addEventListener('click', () => {
-    for (const item of document.querySelectorAll('.section-nav a')) item.removeAttribute('aria-current');
-    link.setAttribute('aria-current', 'location');
-    setJourneyWorkspace(link.getAttribute('href') === '#journeySectionHeading');
-  });
   renderVisual('sentiment');
 }
 function refreshPeriod() {
@@ -759,6 +803,9 @@ function refreshPeriod() {
   setSummary(); setTrends(); setMovement(); setEmerging(); setMigration(); setNeedsEvidence(); setJourneys(); renderVisual(activeVisual);
   if (!document.getElementById('feedbackPanel').hidden) { showFeedback(); document.getElementById('feedbackPanel').dataset.loaded = 'true'; }
   document.getElementById('activePeriod').textContent = dateLabel(scope.current);
+  document.getElementById('workspacePeriod').textContent = dateLabel(scope.current);
+  if (document.getElementById('languageCanvas').dataset.loaded) renderLanguageWorkspace();
+  renderSummaryExperiences();
   document.getElementById('activeTotal').textContent = `${format(records.length)} analyzed feedback records`;
   document.getElementById('dateStatus').textContent = `${format(records.length)} selected records · All 1,200 fixture dates are usable. ${scope.comparison ? `${data.periodTotals.comparison} comparison records (${dateLabel(scope.comparison)}).` : 'Comparison is off.'}`;
 }
@@ -800,11 +847,13 @@ document.getElementById('loadDemoButton').addEventListener('click', () => {
   document.getElementById('visualToggle').setAttribute('aria-expanded', 'true');
   document.getElementById('visualToggle').textContent = 'Hide visuals';
   document.documentElement.scrollTop = 0;
-  document.getElementById('summaryHeading').focus();
-  setJourneyWorkspace(window.location.hash === '#journeySectionHeading');
+  const key = workspaceFromHash();
+  window.history.replaceState(null, '', '#' + key);
+  activateWorkspace(key);
 });
 document.getElementById('newAnalysisButton').addEventListener('click', () => {
-  setJourneyWorkspace(false);
+  activateWorkspace('executive-summary', false);
+  window.history.replaceState(null, '', window.location.pathname + window.location.search);
   closeEvidence(false);
   for (const button of document.querySelectorAll('.module-toggle, #feedbackToggle')) {
     button.setAttribute('aria-expanded', 'false');
@@ -867,3 +916,6 @@ document.getElementById('downloadReportButton').addEventListener('click', () => 
     status.textContent = 'Report could not be prepared. Please try again.';
   } finally { button.disabled = !data.summary.total; }
 });
+
+// Known workspace links restore the static demo on refresh without storage or requests.
+if (workspaceViews.has(window.location.hash.slice(1)) || Object.hasOwn(legacyWorkspaces, window.location.hash.slice(1))) document.getElementById('loadDemoButton').click();
