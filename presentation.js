@@ -1,7 +1,7 @@
 /* Static presentation projections. Never analyzes or classifies a comment. */
 (function (root) {
   const ids = rows => rows.map(row => row.id);
-  const within = (rows, range) => range ? rows.filter(row => row.date >= range[0] && row.date <= range[1]) : rows;
+  const within = (rows, range) => range ? rows.filter(row => validDate(row.date) && row.date >= range[0] && row.date <= range[1]) : rows;
   const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') &&
     !Number.isNaN(Date.parse(value)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
   function validateScope(scope) {

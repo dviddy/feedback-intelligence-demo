@@ -10,6 +10,10 @@ function app({load=true,transform}={}) {
   const w=dom.window,d=w.document,requests=[];
   for(const name of ['fetch','XMLHttpRequest','WebSocket'])w[name]=()=>{requests.push(name);throw Error('Unexpected network');};
   for(const file of scripts){if(file==='demo.js'&&transform){const project=w.FEEDBACK_DEMO_PRESENTATION.project;w.FEEDBACK_DEMO_PRESENTATION.project=(...args)=>transform(project(...args));}w.eval(read(file));}
+  // Preserve explicit All Data coverage for the existing regression scenarios.
+  d.getElementById('periodPreset').value = 'all';
+  d.getElementById('periodPreset').dispatchEvent(new dom.window.Event('change'));
+  d.getElementById('periodForm').dispatchEvent(new dom.window.Event('submit', {cancelable:true}));
   if(load)d.getElementById('loadDemoButton').click();
   const change=(id,value)=>{d.getElementById(id).value=value;d.getElementById(id).dispatchEvent(new w.Event('change'));};
   const apply=()=>d.getElementById('periodForm').dispatchEvent(new w.Event('submit',{cancelable:true}));

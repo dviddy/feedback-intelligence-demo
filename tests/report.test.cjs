@@ -17,6 +17,10 @@ function browser(load=true) {
   w.URL.createObjectURL=blob=>{blobs.push(blob);return 'blob:synthetic-report';};w.URL.revokeObjectURL=()=>{};
   w.HTMLAnchorElement.prototype.click=function(){downloads.push({filename:this.download,url:this.href});};
   for(const script of scripts)w.eval(read(script));
+  // Preserve explicit All Data coverage for the existing regression scenarios.
+  d.getElementById('periodPreset').value = 'all';
+  d.getElementById('periodPreset').dispatchEvent(new dom.window.Event('change'));
+  d.getElementById('periodForm').dispatchEvent(new dom.window.Event('submit', {cancelable:true}));
   if(load)d.getElementById('loadDemoButton').click();
   const change=(id,value)=>{d.getElementById(id).value=value;d.getElementById(id).dispatchEvent(new w.Event('change'));};
   const apply=()=>d.getElementById('periodForm').dispatchEvent(new w.Event('submit',{cancelable:true}));

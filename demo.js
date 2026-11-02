@@ -2,7 +2,19 @@
 const fixture = window.FEEDBACK_DEMO_DATA;
 const languageConfig = window.FEEDBACK_RECURRING_LANGUAGE;
 const presentation = window.FEEDBACK_DEMO_PRESENTATION;
-let scope = { current: null, comparison: null };
+function latestWindow(days = 90) {
+  const dates = fixture.records.map(row => row.date).filter(value => {
+    try { presentation.validateScope({ current: [value, value], comparison: null }); return true; } catch { return false; }
+  }).sort();
+  if (!dates.length) return null;
+  const end = dates[dates.length - 1];
+  return [new Date(Date.parse(`${end}T00:00:00Z`) - (days - 1) * 86400000).toISOString().slice(0, 10), end];
+}
+function defaultScope() {
+  const current = latestWindow();
+  return { current, comparison: current ? presentation.previous(current) : null };
+}
+let scope = defaultScope();
 let data = presentation.project(fixture, languageConfig, scope);
 let records = data.records;
 const journeyFixture = window.FEEDBACK_JOURNEY_PROVENANCE;
@@ -94,7 +106,48 @@ function evidenceList(ids) {
   });
   return details;
 }
+function renderExecutiveKpis() {
+  const target = document.getElementById('executiveKpis'); target.replaceChildren();
+  const prior = scope.comparison ? presentation.project(fixture, languageConfig, {current: scope.comparison, comparison: null}).records : [];
+  const available = Boolean(records.length && prior.length);
+  document.getElementById('executivePeriods').textContent = `Current: ${dateLabel(scope.current)} · ${format(records.length)} analyzed` +
+    (scope.comparison ? ` · Previous: ${dateLabel(scope.comparison)} · ${format(prior.length)} analyzed` : ' · Comparison unavailable');
+  const movements = [];
+  for (const [label, field, value, positive] of [
+    ['Negative sentiment', 'sentiment', 'Negative', false], ['High effort', 'effort', 'High', false],
+    ['High priority', 'priority', 'High', false], ['Positive sentiment', 'sentiment', 'Positive', true]
+  ]) {
+    const currentRows = records.filter(row => row[field] === value), previousRows = prior.filter(row => row[field] === value);
+    const currentShare = records.length ? 100 * currentRows.length / records.length : null;
+    const previousShare = prior.length ? 100 * previousRows.length / prior.length : null;
+    const delta = available ? currentShare - previousShare : null;
+    // Whole-percent values and whole-pp deltas: suppress arrows below display precision.
+    const stable = available && (Math.abs(delta) < 0.5 || currentShare.toFixed(0) === previousShare.toFixed(0));
+    const favorable = available && !stable && (positive ? delta > 0 : delta < 0);
+    const movement = !available ? 'Comparison unavailable' : stable ? 'Stable at displayed precision' : `${delta > 0 ? '↑' : '↓'} ${Math.abs(delta).toFixed(0)} pp · ${favorable ? 'Favorable' : 'Unfavorable'}`;
+    const card = el('article', undefined, 'executive-kpi'); card.dataset.kpi = label;
+    add(card, el('h3', label), el('p', currentShare === null ? '—' : `${currentShare.toFixed(0)}%`, 'executive-value'),
+      el('p', movement, `executive-delta ${!available || stable ? 'neutral' : favorable ? 'favorable' : 'unfavorable'}`),
+      el('p', available ? `From ${previousShare.toFixed(0)}% · ${previousRows.length} previous comments` : 'Previous share unavailable', 'row-meta'),
+      el('p', `${currentRows.length} current comments`, 'row-meta'),
+      evidenceAction(`View ${label.toLowerCase()} supporting feedback`, label, [
+        {label:'Current period',recordIds:currentRows.map(row => row.id),context:`Current period · ${currentContext()} · ${label}`},
+        ...(available ? [{label:'Previous period',recordIds:previousRows.map(row => row.id),context:`Previous period · ${comparisonContext()} · ${label}`,comparison:true}] : [])
+      ]));
+    target.append(card);
+    if (available && !stable) movements.push({label, delta, favorable});
+  }
+  const unfavorable = movements.filter(row => !row.favorable).sort((a,b) => Math.abs(b.delta)-Math.abs(a.delta));
+  const favorable = movements.filter(row => row.favorable).sort((a,b) => Math.abs(b.delta)-Math.abs(a.delta));
+  const clause = row => row === unfavorable[0] && row.label === 'High effort' ?
+    'High effort is elevated in the current period' : `${row.label} ${row.delta > 0 ? 'increased' : 'decreased'}`;
+  document.getElementById('executiveHeadline').textContent = !available ?
+    (records.length ? 'Selected feedback shows the sentiment, effort and priority shares below.' : 'No analyzed feedback in the selected period.') :
+    unfavorable.length && favorable.length ? `${clause(unfavorable[0])}, while ${clause(favorable[0]).toLowerCase()}.` :
+    movements.length ? `${clause((unfavorable[0] || favorable[0]))}.` : 'Feedback shares remained stable at displayed precision.';
+}
 function setSummary() {
+  renderExecutiveKpis();
   const summary = data.summary;
   const metrics = [
     ['Feedback Analyzed', format(summary.total), 'Precomputed synthetic records', records.map(r => r.id)],
@@ -884,13 +937,16 @@ function refreshPeriod() {
   if (document.getElementById('languageCanvas').dataset.loaded) renderLanguageWorkspace();
   renderSummaryExperiences();
   document.getElementById('activeTotal').textContent = `${format(records.length)} analyzed feedback records`;
-  document.getElementById('dateStatus').textContent = `${format(records.length)} selected records · All 1,200 fixture dates are usable. ${scope.comparison ? `${data.periodTotals.comparison} comparison records (${dateLabel(scope.comparison)}).` : 'Comparison is off.'}`;
+  const datedCount = fixture.records.filter(row => {
+    try { presentation.validateScope({current:[row.date,row.date],comparison:null}); return true; } catch { return false; }
+  }).length;
+  document.getElementById('dateStatus').textContent = `${format(records.length)} selected records · ${format(datedCount)} of ${format(fixture.records.length)} fixture dates are usable.${datedCount < fixture.records.length && scope.current ? ' Undated or invalid-date records are excluded from dated periods.' : ''} ${scope.comparison ? `${data.periodTotals.comparison} comparison records (${dateLabel(scope.comparison)}).` : 'Comparison is off.'}`;
 }
 function configureDates() {
   const preset = document.getElementById('periodPreset').value;
   const start = document.getElementById('currentStart'), end = document.getElementById('currentEnd');
   start.disabled = end.disabled = preset !== 'custom';
-  const ranges = { '30': ['2026-09-01', '2026-09-30'], '90': ['2026-07-03', '2026-09-30'], q3: ['2026-07-01', '2026-09-30'] };
+  const ranges = { '30': latestWindow(30), '90': latestWindow(90), q3: ['2026-07-01', '2026-09-30'] };
   if (preset === 'all') [start.value, end.value] = [fixture.meta.startDate, fixture.meta.endDate];
   else if (ranges[preset]) [start.value, end.value] = ranges[preset];
   const enabled = document.getElementById('compareEnabled'); enabled.disabled = preset === 'all';
@@ -911,6 +967,8 @@ document.getElementById('periodForm').addEventListener('submit', event => {
   try { presentation.validateScope(next); scope = next; error.hidden = true; refreshPeriod(); }
   catch (failure) { error.textContent = failure.message; error.hidden = false; }
 });
+document.getElementById('periodPreset').value = '90';
+document.getElementById('compareEnabled').checked = true;
 configureDates(); refreshPeriod(); setVisuals(); installToggles();
 document.getElementById('moreFeedback').addEventListener('click', showFeedback);
 document.getElementById('moreEvidence').addEventListener('click', showEvidenceBatch);
@@ -938,9 +996,9 @@ document.getElementById('newAnalysisButton').addEventListener('click', () => {
     document.getElementById(button.getAttribute('aria-controls')).hidden = true;
   }
   for (const details of resultsExperience.querySelectorAll('details')) details.open = false;
-  scope = { current: null, comparison: null };
-  document.getElementById('periodPreset').value = 'all';
-  document.getElementById('compareEnabled').checked = false;
+  scope = defaultScope();
+  document.getElementById('periodPreset').value = '90';
+  document.getElementById('compareEnabled').checked = true;
   document.getElementById('comparisonPreset').value = 'previous';
   document.getElementById('dateError').hidden = true;
   configureDates(); refreshPeriod();

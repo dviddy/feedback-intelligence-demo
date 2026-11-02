@@ -28,6 +28,10 @@ function browser(mutate) {
     dom.window.eval(read(file));
   }
   const d = dom.window.document;
+  // Preserve explicit All Data coverage for the existing regression scenarios.
+  d.getElementById('periodPreset').value = 'all';
+  d.getElementById('periodPreset').dispatchEvent(new dom.window.Event('change'));
+  d.getElementById('periodForm').dispatchEvent(new dom.window.Event('submit', {cancelable:true}));
   d.getElementById('loadDemoButton').click();
   const change = (id, value) => { d.getElementById(id).value = value; d.getElementById(id).dispatchEvent(new dom.window.Event('change')); };
   const apply = () => d.getElementById('periodForm').dispatchEvent(new dom.window.Event('submit', { cancelable: true }));
@@ -227,12 +231,12 @@ test('Empty periods show polished absence states with no invented rate or eviden
   assert.equal(d.querySelectorAll('#evidenceList .feedback-card').length, 0);
   assert.ok(!/NaN|Infinity/.test(d.body.textContent)); dom.window.close();
 });
-test('New Analysis resets date scope and reloads a clean All Data view', () => {
+test('New Analysis resets date scope and reloads the default comparison', () => {
   const { dom, d, custom } = browser(); custom('2026-09-01', '2026-09-30');
   d.getElementById('newAnalysisButton').click(); d.getElementById('loadDemoButton').click();
-  assert.equal(d.getElementById('periodPreset').value, 'all');
-  assert.equal(d.querySelector('[data-metric="Feedback Analyzed"] .metric-value').textContent, '1,200');
-  assert.equal(d.getElementById('compareEnabled').checked, false); dom.window.close();
+  assert.equal(d.getElementById('periodPreset').value, '90');
+  assert.equal(d.querySelector('[data-metric="Feedback Analyzed"] .metric-value').textContent, '626');
+  assert.equal(d.getElementById('compareEnabled').checked, true); dom.window.close();
 });
 test('Safe text rendering treats malicious synthetic comment text as text', () => {
   const payload = '<img src=x onerror="alert(1)"><script>alert(2)</script>';

@@ -556,3 +556,25 @@ h2,.visual-overview h2 { font-size:28px; letter-spacing:-.65px; }
  #visualCanvas .chart-label span:last-child { white-space:normal; font-size:13px; }
  .migration-rate { font-size:20px; }
 }
+
+/* Executive decision summary: scoped to the overview only. */
+.executive-periods,.executive-qualifier{font-size:12px;color:var(--muted);line-height:1.7}
+.executive-headline{font-size:21px;line-height:1.45;max-width:900px;color:var(--navy);margin:14px 0 20px;font-weight:550}
+.executive-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;max-width:1100px;border-top:2px solid var(--navy);padding-top:18px}
+.executive-kpi{min-width:0;padding:0 12px 8px 0}.executive-kpi h3{font-size:13px;font-weight:600;margin:0;color:var(--muted)}
+.executive-value{font-size:38px;font-weight:700;letter-spacing:-1px;line-height:1.2;margin:10px 0}
+.executive-delta{font-size:12px;font-weight:600;min-height:32px}.executive-delta.favorable{color:#386a55}.executive-delta.unfavorable{color:#97512f}.executive-delta.neutral{color:var(--muted)}
+.executive-kpi .evidence-action{min-height:40px;line-height:1.5}.executive-kpi .row-meta{line-height:1.6;margin:4px 0}
+.executive-kpi button:focus-visible{outline:3px solid var(--blue);outline-offset:4px}
+.summary-section > .section-heading{display:block}
+.summary-section > .section-heading > p{max-width:70ch;margin:8px 0 0}
+#summaryMetrics{margin-top:24px;border-top:1px solid var(--line)}
+#summaryMetrics .metric{padding:14px 16px 12px}
+#summaryMetrics .metric-label{font-size:12px;font-weight:500;min-height:0}
+#summaryMetrics .metric-value{font-size:25px;font-weight:550;letter-spacing:-.5px;line-height:1.25;margin:7px 0 5px;color:var(--ink)}
+#summaryMetrics .metric-context{min-height:0;font-size:12px}
+#summaryMetrics .metric[data-metric="Established Trends"] .metric-value,
+#summaryMetrics .metric[data-metric="Emerging Experiences"] .metric-value{font-size:21px}
+#summaryMetrics .metric[data-metric="Needs More Evidence"] .metric-value{font-size:17px}
+@media(max-width:1000px){.executive-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.executive-kpis{gap:22px 12px}.executive-value{font-size:32px}.executive-headline{font-size:20px}}

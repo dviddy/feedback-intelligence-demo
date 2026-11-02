@@ -11,6 +11,10 @@ function app(hash = '') {
   const d = dom.window.document;
   for (const name of ['fetch','XMLHttpRequest','WebSocket']) dom.window[name] = () => { throw Error('Unexpected network'); };
   for (const file of scripts) dom.window.eval(read(file));
+  // Preserve explicit All Data coverage for the existing regression scenarios.
+  d.getElementById('periodPreset').value = 'all';
+  d.getElementById('periodPreset').dispatchEvent(new dom.window.Event('change'));
+  d.getElementById('periodForm').dispatchEvent(new dom.window.Event('submit', {cancelable:true}));
   if (!d.getElementById('startExperience').hidden) d.getElementById('loadDemoButton').click();
   const nav = key => d.querySelector(`.section-nav [data-workspace="${key}"]`).click();
   const visible = () => [...d.querySelectorAll('[data-workspace-view]')].filter(v=>!v.hidden).map(v=>v.dataset.workspaceView);

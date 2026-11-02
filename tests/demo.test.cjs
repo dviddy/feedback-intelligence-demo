@@ -36,6 +36,10 @@ function browser({ load = true } = {}) {
   dom.window.eval(read('executive-report-pdf.js'));
   dom.window.eval(read('executive-report-adapter.js'));
   dom.window.eval(code);
+  // Preserve explicit All Data coverage for the existing regression scenarios.
+  dom.window.document.getElementById('periodPreset').value = 'all';
+  dom.window.document.getElementById('periodPreset').dispatchEvent(new dom.window.Event('change'));
+  dom.window.document.getElementById('periodForm').dispatchEvent(new dom.window.Event('submit', {cancelable:true}));
   if (load) dom.window.document.getElementById('loadDemoButton').click();
   return { dom, document: dom.window.document, requests };
 }
