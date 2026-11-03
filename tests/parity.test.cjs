@@ -254,7 +254,7 @@ test('Static CSP blocks connections; no API, upload handler, persistence or priv
   const { dom, d, requests, change, apply } = browser();
   for (const view of d.querySelectorAll('[data-visual]')) view.click();
   change('periodPreset', '30'); apply(); d.getElementById('newAnalysisButton').click();
-  assert.deepEqual(requests, []); assert.equal(d.getElementById('datasetInput').disabled, true); dom.window.close();
+  assert.deepEqual(requests, []); assert.equal(d.querySelector('input[type=file]'), null); dom.window.close();
 });
 test('Progressive disclosure bounds initial DOM and loads evidence and hidden charts only on demand', () => {
   const { dom, d } = browser();

@@ -578,3 +578,39 @@ h2,.visual-overview h2 { font-size:28px; letter-spacing:-.65px; }
 #summaryMetrics .metric[data-metric="Needs More Evidence"] .metric-value{font-size:17px}
 @media(max-width:1000px){.executive-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.executive-kpis{gap:22px 12px}.executive-value{font-size:32px}.executive-headline{font-size:20px}}
+
+/* PD.2L.1A — cinematic launch. All overrides end when the demo opens. */
+body:has(#startExperience:not([hidden])) { background:#0B1D30; }
+body:has(#startExperience:not([hidden])) .site-header { background:#0B1D30; border-color:#26394B; }
+body:has(#startExperience:not([hidden])) .brand strong { color:#fff; }
+body:has(#startExperience:not([hidden])) .brand span,
+body:has(#startExperience:not([hidden])) .header-note { color:#C4D0DC; }
+.shell:has(#startExperience:not([hidden])) { width:100%; max-width:none; margin:0; padding:0; }
+.start-experience { padding:0; min-height:calc(100svh - 90px); display:flex; flex-direction:column; color:#fff; background-color:#0B1D30; background-image:linear-gradient(180deg,rgba(5,18,34,.42),rgba(5,18,34,.32) 48%,rgba(5,18,34,.86)),url('assets/mountain-sunrise-hero.jpg'); background-size:cover; background-position:center 54%; }
+.launch-hero { display:flex; flex:1; align-items:center; justify-content:center; padding:clamp(64px,9vh,120px) 32px 64px; }
+.launch-copy { width:100%; max-width:1180px; text-align:center; }
+.launch-hero h1 { color:#fff; font-size:clamp(40px,4.1vw,62px); line-height:1.16; letter-spacing:-1.6px; font-weight:550; margin:0 auto; text-wrap:balance; }
+.launch-support { max-width:650px; font-size:18px; line-height:1.7; color:#F0F3F6; margin:28px auto 34px; text-wrap:pretty; }
+.product-entry-cta { display:inline-flex; align-items:center; justify-content:center; gap:18px; min-height:56px; padding:15px 28px; border:1px solid #F0DBB8; border-radius:4px; background:#F0DBB8; color:#10283F; box-shadow:0 5px 24px rgba(0,0,0,.2); font-size:16px; font-weight:700; cursor:pointer; }
+.product-entry-cta:hover { background:#FFF0D8; border-color:#FFF0D8; }
+.product-entry-cta:focus-visible { outline:3px solid #fff; outline-offset:5px; }
+.launch-disclosure { margin:18px 0 0; color:#D0DBE5; font-size:11px; }
+.launch-values { position:relative; top:-20px; list-style:none; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); width:min(1080px,100%); margin:0 auto; padding:40px 24px 72px; color:#F3F5F7; }
+.launch-values li { text-align:center; padding:12px 28px; font-size:22px; font-weight:600; line-height:1.4; }
+.launch-values li+li { border-left:1px solid #95A3B2; }
+@media(min-width:1600px) { .launch-hero h1 { font-size:68px; } }
+@media(max-width:900px) {
+  .launch-hero { padding:72px 32px 56px; }
+  .launch-hero h1 { font-size:46px; }
+  .launch-values li { font-size:18px; padding:12px 16px; }
+}
+@media(max-width:600px) {
+  .start-experience { min-height:calc(100svh - 100px); background-position:60% center; }
+  .launch-hero { padding:52px 24px 34px; }
+  .launch-hero h1 { font-size:clamp(33px,8.5vw,44px); letter-spacing:-1px; }
+  .launch-support { font-size:16px; margin:24px auto 28px; }
+  .product-entry-cta { min-height:56px; padding:15px 24px; }
+  .launch-values { top:-12px; grid-template-columns:1fr; gap:8px; padding:20px 24px 44px; }
+  .launch-values li { padding:14px 8px; font-size:19px; }
+  .launch-values li+li { border-left:0; }
+}

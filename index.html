@@ -25,22 +25,19 @@
   </div></header>
   <main id="main" class="shell" tabindex="-1">
     <section id="startExperience" class="start-experience" aria-labelledby="startHeading">
-      <div class="start-intro"><p class="eyebrow">Start an analysis</p><h1 id="startHeading" tabindex="-1">Turn feedback into a clearer view of experience.</h1>
-        <p>Explore how Feedback Intelligence organizes comments into executive measures, recurring experiences, journey opportunities and supporting evidence.</p>
-        <p class="start-disclosure">Public demo · Synthetic feedback only · Live analysis unavailable</p></div>
-      <div class="start-grid">
-        <section class="start-card" aria-labelledby="commentStartHeading"><span class="start-number">01</span><h2 id="commentStartHeading">Analyze One Comment</h2>
-          <p>See how a single member comment would enter the analysis workflow.</p><label for="commentInput">Member comment</label>
-          <textarea id="commentInput" rows="4" placeholder="Paste a comment here in the full product" disabled></textarea>
-          <button type="button" disabled>Analyze Comment</button><p class="start-note">Live single-comment analysis is available in the full product. This static demo does not accept or submit comments.</p></section>
-        <section class="start-card" aria-labelledby="datasetStartHeading"><span class="start-number">02</span><h2 id="datasetStartHeading">Analyze Feedback Dataset</h2>
-          <p>In the full product, upload a CSV to analyze a collection of feedback.</p><label class="upload-area" for="datasetInput"><strong>Choose a CSV file</strong><span>CSV upload is unavailable in this public demo.</span></label>
-          <input id="datasetInput" type="file" accept=".csv,text/csv" disabled><p class="start-note">No customer file is selected, read, uploaded or stored here.</p></section>
-        <section class="start-card start-card-demo" aria-labelledby="demoStartHeading"><span class="start-number">03 / Recommended for review</span><h2 id="demoStartHeading">Load Demo Dataset</h2>
-          <p>Explore 1,200 precomputed synthetic comments from Apr 1 – Sep 30, 2026. No account, upload or live analysis is needed.</p>
-          <button id="loadDemoButton" type="button" class="primary-action">Load Demo Dataset <span aria-hidden="true">→</span></button>
-          <p class="start-note">Opens the complete executive results and evidence views.</p></section>
+      <div class="launch-hero">
+        <div class="launch-copy">
+          <h1 id="startHeading" tabindex="-1">Insights from feedback.<br>A better experience for your members.</h1>
+          <p class="launch-support">Understand what’s working, what’s getting harder, and where to focus next — all in one clear, executive view.</p>
+          <div class="product-entry"><button id="loadDemoButton" type="button" class="primary-action product-entry-cta">Load Demo Dataset <span aria-hidden="true">→</span></button></div>
+          <p class="launch-disclosure">Public demo · Synthetic feedback only</p>
+        </div>
       </div>
+      <ul class="launch-values" aria-label="Product benefits">
+        <li>Understand trends</li>
+        <li>Prioritize what matters</li>
+        <li>Improve the experience</li>
+      </ul>
     </section>
     <div id="resultsExperience" hidden>
     <div class="results-toolbar"><span>Demo dataset loaded <span aria-hidden="true">·</span> Synthetic feedback</span><div class="results-actions"><button id="downloadReportButton" type="button">Download Executive Report</button><button id="newAnalysisButton" type="button">New Analysis</button></div></div><p id="reportStatus" class="row-meta" role="status"></p>

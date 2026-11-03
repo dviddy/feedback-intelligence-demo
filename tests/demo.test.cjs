@@ -95,13 +95,13 @@ test('start experience is the initial view, demo load reveals results, and New A
   const results = document.getElementById('resultsExperience');
   assert.equal(start.hidden, false);
   assert.equal(results.hidden, true);
-  assert.match(start.textContent, /Analyze One Comment/);
-  assert.match(start.textContent, /Analyze Feedback Dataset/);
+  assert.doesNotMatch(start.textContent, /Analyze One Comment/);
+  assert.doesNotMatch(start.textContent, /Analyze Feedback Dataset/);
   assert.match(start.textContent, /Load Demo Dataset/);
   assert.match(start.textContent, /Synthetic feedback only/);
-  assert.equal(document.getElementById('commentInput').disabled, true);
-  assert.equal(document.getElementById('datasetInput').disabled, true);
-  assert.match(start.textContent, /No customer file is selected, read, uploaded or stored/);
+  assert.equal(document.getElementById('commentInput'), null);
+  assert.equal(document.getElementById('datasetInput'), null);
+  assert.equal(start.querySelectorAll('input, textarea, form').length, 0);
   document.getElementById('loadDemoButton').click();
   assert.equal(start.hidden, true);
   assert.equal(results.hidden, false);
@@ -551,4 +551,35 @@ test('generic personal-path guard detects home locations without depending on a 
   for (const sample of ['data/demo-data.js', 'https://example.org/demo', 'Synthetic feedback']) {
     assert.ok(!prohibitedPersonalPath.test(sample));
   }
+});
+
+test('PD.2L.1 launch uses approved copy, one reusable entry CTA and three plain value statements', () => {
+  const {dom, document:d, requests} = browser({load:false});
+  const launch=d.getElementById('startExperience');
+  assert.equal(d.getElementById('startHeading').textContent, 'Insights from feedback.A better experience for your members.');
+  assert.equal(launch.querySelector('.launch-support').textContent, 'Understand what’s working, what’s getting harder, and where to focus next — all in one clear, executive view.');
+  assert.equal(launch.querySelectorAll('button').length,1);
+  const cta=launch.querySelector('.product-entry > .product-entry-cta');
+  assert.equal(cta.textContent,'Load Demo Dataset →'); assert.equal(cta.disabled,false); assert.equal(cta.type,'button');
+  assert.deepEqual([...launch.querySelectorAll('.launch-values li')].map(e=>e.textContent), ['Understand trends','Prioritize what matters','Improve the experience']);
+  assert.equal(launch.querySelectorAll('svg, img, i, input, textarea, form, a').length,0);
+  assert.doesNotMatch(launch.textContent,/sign in|log in|Analyze One Comment|upload/i);
+  assert.equal(d.querySelector('input[type=file], input[type=password]'),null);
+  assert.match(d.querySelector('meta[http-equiv="Content-Security-Policy"]').content,/connect-src 'none'.*form-action 'none'/);
+  assert.match(read('style.css'),/\.product-entry-cta:focus-visible/);
+  assert.deepEqual(requests,[]); dom.window.close();
+});
+
+
+test('PD.2L.1A hero uses a local optimized image without new remote assets', () => {
+  const css=read('style.css');
+  const assets=[...css.matchAll(/url\(['"]?([^)'"\s]+)['"]?\)/g)].map(m=>m[1]);
+  assert.ok(assets.includes('assets/mountain-sunrise-hero.jpg'));
+  for(const asset of assets) {
+    assert.ok(!/^(?:[a-z]+:|\/|\.\.)/i.test(asset));
+    assert.ok(fs.existsSync(path.join(root,asset)));
+  }
+  const image=fs.readFileSync(path.join(root,'assets/mountain-sunrise-hero.jpg'));
+  assert.equal(image[0],0xff);assert.equal(image[1],0xd8);
+  assert.ok(image.length>1000 && image.length<300000,'hero is a lightweight production JPEG');
 });
