@@ -35,7 +35,7 @@ test('Seven independent workspaces expose exactly one primary view and one activ
     nav(key);assert.deepEqual(visible(),[key]); assert.equal(dom.window.location.hash,'#'+key);
     const current=d.querySelectorAll('.section-nav [aria-current]');assert.equal(current.length,1);assert.equal(current[0].dataset.workspace,key);
     assert.equal(d.getElementById('downloadReportButton').closest('[data-workspace-view]'),null);
-    assert.equal(d.querySelectorAll('#periodForm').length,1);assert.equal(d.activeElement.id,d.querySelector(`[data-workspace-view="${key}"] h2`).id);
+    assert.equal(d.querySelectorAll('#periodForm').length,1);assert.equal(d.activeElement.id,d.querySelector(`[data-workspace-view="${key}"]`).getAttribute('aria-labelledby'));
     assert.equal(dom.window.document.documentElement.scrollTop,0);
   }
   dom.window.close();

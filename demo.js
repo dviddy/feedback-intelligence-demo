@@ -113,6 +113,7 @@ function renderExecutiveKpis() {
   document.getElementById('executivePeriods').textContent = `Current: ${dateLabel(scope.current)} · ${format(records.length)} analyzed` +
     (scope.comparison ? ` · Previous: ${dateLabel(scope.comparison)} · ${format(prior.length)} analyzed` : ' · Comparison unavailable');
   const movements = [];
+  const stableLabels = [];
   for (const [label, field, value, positive] of [
     ['Negative sentiment', 'sentiment', 'Negative', false], ['High effort', 'effort', 'High', false],
     ['High priority', 'priority', 'High', false], ['Positive sentiment', 'sentiment', 'Positive', true]
@@ -124,9 +125,9 @@ function renderExecutiveKpis() {
     // Whole-percent values and whole-pp deltas: suppress arrows below display precision.
     const stable = available && (Math.abs(delta) < 0.5 || currentShare.toFixed(0) === previousShare.toFixed(0));
     const favorable = available && !stable && (positive ? delta > 0 : delta < 0);
-    const movement = !available ? 'Comparison unavailable' : stable ? 'Stable at displayed precision' : `${delta > 0 ? '↑' : '↓'} ${Math.abs(delta).toFixed(0)} pp · ${favorable ? 'Favorable' : 'Unfavorable'}`;
+    const movement = !available ? 'Comparison unavailable' : stable ? 'Stable at displayed precision' : `${delta > 0 ? 'Up' : 'Down'} ${Math.abs(delta).toFixed(0)} pp · ${favorable ? 'Favorable' : 'Unfavorable'}`;
     const card = el('article', undefined, 'executive-kpi'); card.dataset.kpi = label;
-    add(card, el('h3', label), el('p', currentShare === null ? '—' : `${currentShare.toFixed(0)}%`, 'executive-value'),
+    add(card, el('h2', label), el('p', currentShare === null ? '—' : `${currentShare.toFixed(0)}%`, 'executive-value'),
       el('p', movement, `executive-delta ${!available || stable ? 'neutral' : favorable ? 'favorable' : 'unfavorable'}`),
       el('p', available ? `From ${previousShare.toFixed(0)}% · ${previousRows.length} previous comments` : 'Previous share unavailable', 'row-meta'),
       el('p', `${currentRows.length} current comments`, 'row-meta'),
@@ -136,15 +137,46 @@ function renderExecutiveKpis() {
       ]));
     target.append(card);
     if (available && !stable) movements.push({label, delta, favorable});
+    if (stable) stableLabels.push(label.toLowerCase());
   }
-  const unfavorable = movements.filter(row => !row.favorable).sort((a,b) => Math.abs(b.delta)-Math.abs(a.delta));
-  const favorable = movements.filter(row => row.favorable).sort((a,b) => Math.abs(b.delta)-Math.abs(a.delta));
-  const clause = row => row === unfavorable[0] && row.label === 'High effort' ?
-    'High effort is elevated in the current period' : `${row.label} ${row.delta > 0 ? 'increased' : 'decreased'}`;
-  document.getElementById('executiveHeadline').textContent = !available ?
-    (records.length ? 'Selected feedback shows the sentiment, effort and priority shares below.' : 'No analyzed feedback in the selected period.') :
-    unfavorable.length && favorable.length ? `${clause(unfavorable[0])}, while ${clause(favorable[0]).toLowerCase()}.` :
-    movements.length ? `${clause((unfavorable[0] || favorable[0]))}.` : 'Feedback shares remained stable at displayed precision.';
+  renderExecutivePerspective(available, movements, stableLabels);
+}
+function renderExecutivePerspective(available, movements, stableLabels) {
+  const narrative = document.getElementById('executiveHeadline');
+  const evidence = document.getElementById('executivePerspectiveEvidence');
+  evidence.replaceChildren();
+  if (!records.length) {
+    narrative.textContent = 'No analyzed feedback in the selected period. Choose another date range to review feedback.';
+    return;
+  }
+  const sentences = [];
+  if (!available) {
+    sentences.push('A period comparison is unavailable, so the shares below describe the selected feedback only.');
+  } else if (!movements.length) {
+    sentences.push('All four feedback shares remained stable at displayed precision.');
+  } else {
+    movements.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+    const lead = movements.find(row => !row.favorable) || movements[0];
+    const secondary = movements.find(row => row.favorable !== lead.favorable) || movements.find(row => row !== lead);
+    const direction = row => row.label === 'High effort' && row.delta > 0 ?
+      'High effort is higher in the current period' : `${row.label} share ${row.delta > 0 ? 'rose' : 'fell'}`;
+    const stable = stableLabels[0];
+    sentences.push(`${direction(lead)}.`);
+    if (secondary) {
+      sentences.push(`${direction(secondary)}${stable ? `, while ${stable} share stayed stable at displayed precision` : ''}.`);
+    } else if (stable) {
+      sentences.push('The other three feedback shares stayed stable at displayed precision.');
+    }
+  }
+  const trend = data.topTrends[0];
+  if (trend) {
+    sentences.push(`Review ${trend.name}, the Established Trend with the most supporting feedback in the selected period (${format(trend.count)} records).`);
+    evidence.append(evidenceAction(`View supporting feedback for ${trend.name}`, trend.name,
+      oneGroup(trend.recordIds, currentContext() + ' · Established Trend')));
+  } else if (sentences.length < 3) {
+    sentences.push('Use the measures below to review supporting feedback.');
+  }
+  narrative.textContent = sentences.join(' ');
 }
 function setSummary() {
   renderExecutiveKpis();
@@ -864,7 +896,10 @@ function activateWorkspace(key, focus = true) {
     else link.removeAttribute('aria-current');
   }
   const isJourney = key === 'journey-mapping';
-  document.getElementById('workspaceDates').hidden = isJourney;
+  const workspaceDates = document.getElementById('workspaceDates');
+  workspaceDates.hidden = isJourney;
+  const dateHome = document.getElementById(key === 'executive-summary' ? 'executiveDateSlot' : 'workspaceDateHome');
+  if (workspaceDates.parentElement !== dateHome) dateHome.append(workspaceDates);
   document.getElementById(isJourney ? 'journeyDateSlot' : 'workspaceDateSlot').append(dateControls);
   if (isJourney) {
     document.getElementById('journeyPanel').hidden = false;
@@ -878,7 +913,7 @@ function activateWorkspace(key, focus = true) {
     const toggle = document.getElementById('feedbackToggle'); toggle.setAttribute('aria-expanded', 'true'); toggle.textContent = 'Hide feedback';
   }
   if (focus && !results.hidden) {
-    const heading = workspaceViews.get(key).querySelector('h2');
+    const heading = document.getElementById(workspaceViews.get(key).getAttribute('aria-labelledby'));
     heading.focus({preventScroll:true});
     document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
   }

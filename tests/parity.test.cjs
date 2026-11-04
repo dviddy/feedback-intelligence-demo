@@ -605,14 +605,20 @@ test('Journey workspace reuses the date form and restores other sections without
   const { dom, d, requests, change, apply } = browser();
   const dates = d.querySelector('.date-controls'), form = d.getElementById('periodForm');
   const otherSections = ['.summary-section', '.visual-section', '.intelligence-section', '.feedback-section', '.about-section'];
-  const before = otherSections.map(selector => d.querySelector(selector).innerHTML);
+  const snapshot = () => otherSections.map(selector => {
+    const section = d.querySelector(selector).cloneNode(true);
+    section.querySelector('#executiveDateSlot')?.replaceChildren();
+    return section.innerHTML;
+  });
+  assert.equal(d.getElementById('workspaceDates').parentElement.id, 'executiveDateSlot');
+  const before = snapshot();
   const journeyLink = d.querySelector('.section-nav a[href="#journey-mapping"]'); journeyLink.click();
   assert.ok(d.getElementById('resultsExperience').classList.contains('journey-workspace'));
   assert.equal(d.getElementById('journeyDateSlot').firstElementChild, dates);
   assert.equal(d.querySelectorAll('#periodForm').length, 1); assert.equal(d.getElementById('periodForm'), form);
   assert.equal(d.getElementById('journeyPanel').hidden, false);
   assert.equal(journeyLink.getAttribute('aria-current'), 'location');
-  assert.deepEqual(otherSections.map(selector => d.querySelector(selector).innerHTML), before);
+  assert.deepEqual(snapshot(), before);
   assert.deepEqual([...d.querySelectorAll('.journey-kpi-value')].map(node => node.textContent), ['1,200', '16', '5', '346']);
   change('periodPreset', '30'); apply();
   assert.deepEqual([...d.querySelectorAll('.journey-kpi-value')].map(node => node.textContent), ['230', '15', '5', '230']);

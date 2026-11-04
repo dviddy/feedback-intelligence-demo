@@ -46,19 +46,36 @@
       <div class="period-line"><span>Analysis period</span><strong id="activePeriod">Apr 1 – Sep 30, 2026</strong><span id="activeTotal">1,200 analyzed feedback records</span></div>
     </div>
     <nav class="section-nav" aria-label="Results sections"><a href="#executive-summary" data-workspace="executive-summary">Executive Summary</a><a href="#visual-intelligence" data-workspace="visual-intelligence">Visual Intelligence</a><a href="#experience-intelligence" data-workspace="experience-intelligence">Experience Intelligence</a><a href="#journey-mapping" data-workspace="journey-mapping">Journey Mapping</a><a href="#recurring-language" data-workspace="recurring-language" data-section-visual="phrases">Recurring Themes</a><a href="#detailed-feedback" data-workspace="detailed-feedback">Detailed Feedback</a><a href="#about" data-workspace="about">About</a></nav>
-    <details id="workspaceDates" class="workspace-date-context"><summary><span>Selected period</span><strong id="workspacePeriod"></strong><span class="journey-date-action">Change dates</span></summary><div id="workspaceDateSlot"></div></details>
+    <div id="workspaceDateHome"><details id="workspaceDates" class="workspace-date-context"><summary><span>Selected period</span><strong id="workspacePeriod"></strong><span class="journey-date-action">Change dates</span></summary><div id="workspaceDateSlot"></div></details></div>
     <section class="date-controls" aria-labelledby="dateHeading"><h2 id="dateHeading">Date range</h2><p>Dates filter the included synthetic records. Presets end on September 30, 2026, the latest fixture date.</p>
       <form id="periodForm"><div class="date-fields"><label>Selected period<select id="periodPreset"><option value="all">All Data</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="q3">Jul–Sep 2026</option><option value="custom">Custom dates</option></select></label>
       <label>From<input id="currentStart" type="date" value="2026-07-01" disabled></label><label>Through<input id="currentEnd" type="date" value="2026-09-30" disabled></label></div>
       <div class="date-fields"><label class="compare-check"><input id="compareEnabled" type="checkbox" disabled> Compare periods</label><label>Comparison<select id="comparisonPreset" disabled><option value="previous">Previous equal-length period</option><option value="q2">Apr–Jun 2026</option><option value="custom">Custom comparison</option></select></label><label>From<input id="comparisonStart" type="date" value="2026-04-01" disabled></label><label>Through<input id="comparisonEnd" type="date" value="2026-06-30" disabled></label><button type="submit" class="period-apply">Apply dates</button></div></form>
       <p id="dateStatus" role="status">All 1,200 records have usable dates. Comparison is off.</p><p id="dateError" role="alert" hidden></p>
     </section>
-    <section data-workspace-view="executive-summary" hidden class="summary-section" aria-labelledby="summaryHeading"><div class="section-heading"><div><p class="eyebrow">01 / Overview</p><h2 id="summaryHeading" tabindex="-1">Executive Summary</h2></div><p>Selected-period record measures and experience identities. These describe feedback, not all members.</p></div>
-      <p id="executivePeriods" class="executive-periods"></p>
-      <p id="executiveHeadline" class="executive-headline" aria-live="polite"></p>
+    <section data-workspace-view="executive-summary" hidden class="summary-section" aria-labelledby="summaryHeading">
+      <header class="executive-header">
+        <div class="executive-banner">
+          <h1 id="summaryHeading" tabindex="-1">Executive Summary</h1>
+          <p>Key insights from member feedback and what to focus on next.</p>
+          <p id="executivePeriods" class="executive-periods"></p>
+        </div>
+        <div id="executiveDateSlot"></div>
+      </header>
+      <section class="executive-perspective" aria-labelledby="executivePerspectiveHeading">
+        <h2 id="executivePerspectiveHeading">Executive Perspective</h2>
+        <div aria-live="polite">
+          <p id="executiveHeadline"></p>
+          <div id="executivePerspectiveEvidence"></div>
+        </div>
+      </section>
       <div id="executiveKpis" class="executive-kpis"></div>
       <p class="executive-qualifier">Share of analyzed feedback · pp = percentage points</p>
-      <div id="summaryMetrics" class="metrics" aria-live="polite"></div>
+      <section class="executive-support" aria-labelledby="executiveSupportHeading">
+        <h2 id="executiveSupportHeading">Supporting measures</h2>
+        <p>Selected-period record measures and experience identities. These describe feedback, not all members.</p>
+        <div id="summaryMetrics" class="metrics" aria-live="polite"></div>
+      </section>
       <section id="positiveSignals" class="positive-signals" aria-labelledby="positiveSignalsHeading"></section>
       <div id="summaryExperiences" class="summary-experiences"></div><div class="workspace-next"><a href="#experience-intelligence" data-workspace="experience-intelligence">Explore Experience Intelligence →</a><a href="#journey-mapping" data-workspace="journey-mapping">Open Journey Mapping →</a></div>
       <details class="summary-detail"><summary>View sentiment, effort and priority distribution</summary><div id="distribution" class="distribution"></div></details>
