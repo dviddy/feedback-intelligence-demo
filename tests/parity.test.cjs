@@ -72,8 +72,8 @@ test('Executive Summary reconciles every supported metric and distinct identity 
 test('Concentration ranks two populations and excludes withheld/unassigned feedback', () => {
   const { dom, d } = browser(); d.querySelector('[data-visual="domains"]').click();
   const groups = d.querySelectorAll('.concentration-group'); assert.equal(groups.length, 2);
-  assert.equal(groups[0].querySelector('h4').textContent, 'Established Trends');
-  assert.equal(groups[1].querySelector('h4').textContent, 'Emerging Experiences');
+  assert.equal(groups[0].querySelector('h3').textContent, 'Established Trends');
+  assert.equal(groups[1].querySelector('h3').textContent, 'Emerging Experiences');
   for (const group of groups) assert.ok(!group.querySelector('.chart-list').textContent.includes('Needs More Evidence'));
   assert.ok(!groups[0].textContent.includes('Digital Wallet Provisioning Failure'));
   dom.window.close();

@@ -86,7 +86,7 @@ function closeEvidence(restoreFocus = true) {
   document.getElementById('evidenceList').replaceChildren();
   selectedEvidence = []; evidenceShown = 0;
   if (restoreFocus) (evidenceSource?.isConnected ? evidenceSource :
-    document.querySelector('[data-visual][aria-pressed="true"]') || document.getElementById('visualToggle')).focus();
+    document.querySelector('[data-visual][aria-pressed="true"]'))?.focus();
 }
 function evidenceAction(label, title, groups) {
   const button = el('button', label, 'evidence-action');
@@ -212,7 +212,7 @@ function renderBreakdowns(target, chartControls = false) {
   const list = el('div', undefined, 'feedback-breakdowns');
   for (const [field, title, labels] of [['sentiment','Sentiment',['Positive','Neutral','Negative']], ['effort','Effort',['Low','Medium','High']], ['priority','Priority',['Low','Medium','High']]]) {
     const group = el('section', undefined, 'feedback-breakdown'); group.dataset.dimension = field;
-    add(group, el('h4', title));
+    add(group, el(chartControls ? 'h3' : 'h4', title));
     const track = el('div', undefined, 'stacked-track'); track.setAttribute('role', 'img');
     track.setAttribute('aria-label', `${title}: ` + labels.map(label => `${label}, ${data.summary[field][label]} records, ${percent(data.summary[field][label], total, 1)} of selected-period analyzed feedback`).join('; '));
     const choices = el('div', undefined, 'breakdown-choices');
@@ -737,14 +737,19 @@ function pairedRow(item, max) {
   return button;
 }
 function renderSentiment(canvas) {
-  add(canvas, el('p', 'Sentiment, effort and priority · three separate feedback dimensions', 'breakdown-intro'));
   renderBreakdowns(canvas, true);
 }
 
+function concentrationGroups() {
+  return [
+    ['Established Trends', data.established],
+    ['Emerging Experiences', data.emerging.filter(row => row.count >= 2).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))]
+  ];
+}
 function renderDomains(canvas) {
   add(canvas, el('p', `100% of each track represents all ${format(data.summary.total)} selected-period analyzed feedback records. Experience shares are not a partition of all feedback.`, 'chart-note concentration-denominator'));
-  for (const [title, rows] of [['Established Trends', data.established], ['Emerging Experiences', data.emerging.filter(row => row.count >= 2).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))]]) {
-    const section = el('section', undefined, 'concentration-group'); add(section, el('h4', title));
+  for (const [title, rows] of concentrationGroups()) {
+    const section = el('section', undefined, 'concentration-group'); add(section, el('h3', title));
     if (!rows.length) add(section, el('p', `No ${title} meet the recurring threshold in this period.`, 'empty-state'));
     const make = row => chartRow(row.name, row.count, data.summary.total,
       source => openEvidence(row.name, oneGroup(row.recordIds, currentContext() + ' · ' + title), source),
@@ -754,7 +759,7 @@ function renderDomains(canvas) {
     add(section, list);
     if (rows.length > 6) {
       const more = el('button', `View all ${rows.length} ${title.toLowerCase()}`, 'chart-more'); more.type = 'button';
-      const remaining = el('div', undefined, 'chart-list'); remaining.id = 'remainingDomains'; remaining.hidden = true;
+      const remaining = el('div', undefined, 'chart-list'); remaining.id = title === 'Established Trends' ? 'remainingDomains' : 'remainingEmergingDomains'; remaining.hidden = true;
       more.setAttribute('aria-expanded', 'false'); more.setAttribute('aria-controls', remaining.id);
       more.addEventListener('click', () => {
         remaining.hidden = !remaining.hidden;
@@ -770,10 +775,7 @@ function renderDomains(canvas) {
   add(canvas, el('p', 'Needs More Evidence stays outside ranked experience charts. General ungrouped feedback remains in Detailed Feedback.', 'chart-note'));
 }
 function renderMovementVisual(canvas) {
-  if (!data.comparisonAvailable) {
-    add(canvas, el('p', scope.comparison ? 'No comparison data available. Select two periods containing feedback.' : 'Comparison is off. Choose a dated period and enable comparison above.', 'empty-state'));
-    return;
-  }
+  if (!data.comparisonAvailable) return;
   const max = Math.max(...data.movement.flatMap(item => [item.currentCount, item.comparisonCount]), 1);
   const list = el('div', undefined, 'chart-list');
   for (const row of data.movement.slice(0, 5)) add(list, pairedRow(row, max));
@@ -792,13 +794,15 @@ function renderMigrationVisual(canvas) {
   const migration = data.migration;
   if (!migration.eligible || !migration.migrated) add(canvas, el('p', !migration.eligible ? 'No eligible digital-friction evidence; rate unavailable.' : 'No validated assisted contact in this period.', 'empty-state'));
   const headline = el('div', undefined, 'migration-headline');
-  add(headline, el('strong', `${migration.migrated} of ${migration.eligible} eligible digital-friction records`),
-    el('p', migration.eligible ? `${percent(migration.migrated, migration.eligible, 1)} moved to assisted support` : 'Rate unavailable without eligible digital-friction records', 'migration-rate'));
+  const rate = el('p', undefined, 'migration-rate');
+  if (migration.eligible) add(rate, el('strong', percent(migration.migrated, migration.eligible, 1)), ' moved to assisted support');
+  else rate.textContent = 'Rate unavailable without eligible digital-friction records';
+  add(headline, rate, el('strong', `${migration.migrated} of ${migration.eligible} eligible digital-friction records`));
   const track = el('div', undefined, 'chart-track migration-progress'); track.setAttribute('role', 'img');
   track.setAttribute('aria-label', `${migration.migrated} of ${migration.eligible} eligible digital-friction records include validated assisted contact; ${percent(migration.migrated, migration.eligible, 1)}`);
   const fill = el('span', undefined, 'chart-fill'); fill.style.width = `${migration.eligible ? migration.migrated / migration.eligible * 100 : 0}%`; add(track, fill);
   add(headline, track, el('p', 'Share of analyzed feedback records with evidenced digital friction that also include validated movement to assisted support. Not a percentage of all customers, members or interactions.', 'chart-note'));
-  add(canvas, headline, el('h4', 'Eligible digital-friction origins'));
+  add(canvas, headline, el('h3', 'Eligible digital-friction origins'));
   const origins = el('div', undefined, 'chart-list');
   for (const row of migration.origins) add(origins, chartRow(row.name, row.eligible, migration.eligible,
     source => openEvidence(`${row.name} digital origin`, [
@@ -807,18 +811,18 @@ function renderMigrationVisual(canvas) {
     ], source), { valueText: `${format(row.eligible)} records · ${percent(row.eligible, migration.eligible, 1)}`, subline: `of eligible digital-friction records · ${row.migrated} of these records sought assisted help`,
       accessibleLabel: `View ${row.eligible} eligible ${row.name} origin records; ${row.migrated} migrated` }));
   add(canvas, origins, el('p', 'Origins count eligible feedback, including records that did not migrate.', 'chart-note'),
-    el('h4', 'Assisted destinations among migrated records'));
+    el('h3', 'Assisted destinations among migrated records'));
   const destinations = el('div', undefined, 'chart-list');
   for (const row of migration.destinations) add(destinations, chartRow(row.name, row.migrated, migration.migrated,
     source => openEvidence(`${row.name} assisted destination`, oneGroup(row.recordIds,
       currentContext() + ' · validated assisted contact'), source),
     { valueText: `${format(row.migrated)} transitions · ${percent(row.migrated, migration.migrated, 1)}`, subline: 'of assisted transitions', accessibleLabel: `View ${row.migrated} migrated comments with ${row.name} destination` }));
-  add(canvas, destinations, el('p', 'The rate and distributions refer to eligible analyzed feedback records, not all members.', 'chart-note'));
+  add(canvas, destinations);
 }
-function languageRow(theme) {
+function languageRow(theme, headingTag) {
   const row = el('article', undefined, 'language-row');
   const heading = el('div', undefined, 'language-heading');
-  add(heading, el('h4', theme.name), el('strong', `${theme.count} supporting comments`, 'language-count'));
+  add(heading, el(headingTag, theme.name), el('strong', `${theme.count} supporting comments`, 'language-count'));
   add(row, heading, el('p', `${theme.domain || 'Outside controlled taxonomy'} · ${theme.kind}`, 'language-meta'));
   const common = el('div', undefined, 'language-common');
   add(common, el('span', 'Common language', 'language-label'));
@@ -841,10 +845,11 @@ function languageRow(theme) {
 }
 function renderRecurringLanguage(canvas) {
   const themes = data.recurringLanguage;
+  const headingTag = canvas.id === 'visualCanvas' ? 'h3' : 'h4';
   add(canvas, el('p', 'Exact repeated wording within Established and Emerging experiences. Each phrase needs three distinct selected-period comments; counts may overlap.', 'chart-note'));
   if (!themes.length) { add(canvas, el('p', 'No recurring language meets the three-comment threshold in this period.', 'empty-state')); return; }
   const list = el('div', undefined, 'language-list');
-  for (const theme of themes.slice(0, 6)) add(list, languageRow(theme));
+  for (const theme of themes.slice(0, 6)) add(list, languageRow(theme, headingTag));
   add(canvas, list);
   const remainder = el('div', undefined, 'language-list'); remainder.id = canvas.id === 'languageCanvas' ? 'remainingWorkspaceLanguage' : 'remainingLanguage'; remainder.hidden = true;
   if (themes.length > 6) {
@@ -852,19 +857,109 @@ function renderRecurringLanguage(canvas) {
     more.type = 'button'; more.setAttribute('aria-expanded', 'false'); more.setAttribute('aria-controls', remainder.id);
     more.addEventListener('click', () => {
       remainder.hidden = !remainder.hidden; more.setAttribute('aria-expanded', String(!remainder.hidden));
-      if (!remainder.hidden && !remainder.dataset.loaded) { for (const theme of themes.slice(6)) add(remainder, languageRow(theme)); remainder.dataset.loaded = 'true'; }
+      if (!remainder.hidden && !remainder.dataset.loaded) { for (const theme of themes.slice(6)) add(remainder, languageRow(theme, headingTag)); remainder.dataset.loaded = 'true'; }
       more.textContent = remainder.hidden ? 'View all recurring language' : 'Show top 6 only';
     });
     add(canvas, more, remainder);
   }
+}
+function renderVisualInterpretation(canvas, name, title) {
+  const section = el('section', undefined, 'visual-interpretation');
+  const heading = el('h2', title);
+  heading.id = 'visualViewHeading';
+  section.setAttribute('aria-labelledby', heading.id);
+  add(section, heading);
+  const note = text => add(section, el('p', text, 'visual-insight'));
+  const actions = el('div', undefined, 'visual-insight-evidence');
+  const evidence = (label, subject, groups) => add(actions, evidenceAction(label, subject, groups));
+  const total = data.summary.total;
+
+  switch (name) {
+    case 'sentiment': {
+      if (!total) {
+        note('No feedback was observed in the selected period.');
+        break;
+      }
+      const measures = [['sentiment', 'Negative', 'Negative sentiment'], ['effort', 'High', 'High effort'], ['priority', 'High', 'High-priority feedback']];
+      const ranked = measures.map(([field, value, label]) => ({ label, count: data.summary[field][value] }))
+        .sort((a, b) => b.count - a.count);
+      const [lead, next, last] = ranked;
+      const leadPhrase = lead.count > next.count ? 'has the largest share of the three measures at' : 'accounts for';
+      note(`${lead.label} ${leadPhrase} ${percent(lead.count, total, 1)} of analyzed feedback. ${next.label} represents ${percent(next.count, total, 1)}, and ${last.label.toLowerCase()} accounts for ${percent(last.count, total, 1)}.`);
+      add(section, el('p', 'Sentiment, effort, and priority are separate dimensions and may overlap within a record.', 'visual-context'));
+      for (const [field, value] of measures) {
+        const label = `${value} ${field}`;
+        evidence(`View ${label.toLowerCase()} feedback`, label,
+          oneGroup(records.filter(row => row[field] === value).map(row => row.id), currentContext() + ` · ${field} classification`));
+      }
+      break;
+    }
+    case 'domains': {
+      const leaders = concentrationGroups().filter(([, rows]) => rows.length);
+      note(leaders.length ? leaders.map(([group, [row]]) =>
+        `${row.name} leads ${group.toLowerCase()} at ${percent(row.count, total, 1)} of analyzed feedback.`).join(' ') :
+        'No established or emerging experience met the recurring threshold in this period.');
+      for (const [group, [row]] of leaders) {
+        evidence(`View ${row.name} feedback`, row.name, oneGroup(row.recordIds, currentContext() + ' · ' + group));
+      }
+      break;
+    }
+    case 'movement': {
+      if (!data.comparisonAvailable) {
+        note(scope.comparison ? 'No comparison data available. Select two periods containing feedback.' :
+          'Comparison is off. Choose a dated period and enable comparison above.');
+        break;
+      }
+      const highlights = movementHighlights();
+      if (highlights.length) {
+        const summary = el('div', undefined, 'visual-insight visual-movement-highlights');
+        for (const row of highlights) {
+          const item = el('div', undefined, 'visual-movement-highlight');
+          const direction = row.label === 'Increasing' ? 'increase' : 'decrease';
+          const change = `${row.percentageChange > 0 ? '+' : ''}${row.percentageChange.toFixed(1)}%`;
+          add(item, el('span', `Strongest ${direction}`, 'visual-movement-label'),
+            el('strong', row.name), el('span', `${change} in feedback count`, 'visual-movement-change'));
+          add(summary, item);
+        }
+        add(section, summary);
+      } else note('No established trend was classified as increasing or decreasing in this comparison.');
+      for (const row of highlights) evidence(`Compare ${row.name} feedback`, row.name, movementGroups(row));
+      break;
+    }
+    case 'migration': {
+      const { eligible, origins, destinations } = data.migration;
+      note(eligible ? 'The transition rate shows how often eligible digital-friction feedback includes validated assisted contact.' :
+        'No eligible digital-friction records were observed in the selected period. A transition rate is unavailable.');
+      if (eligible) evidence('View eligible and assisted evidence', title, [
+        { label: 'Eligible', recordIds: origins.flatMap(row => row.eligibleRecordIds), context: currentContext() + ' · eligible digital friction' },
+        { label: 'Assisted contact', recordIds: destinations.flatMap(row => row.recordIds), context: currentContext() + ' · validated assisted contact' }
+      ]);
+      break;
+    }
+    case 'phrases': {
+      const theme = data.recurringLanguage[0];
+      if (!theme) {
+        note('No repeated wording met the three-comment threshold in this period.');
+        break;
+      }
+      const phrase = theme.phrases[0];
+      note(`“${phrase.phrase}” appears in ${format(phrase.count)} comments about ${theme.name}.`);
+      evidence('View exact wording in context', `“${phrase.phrase}”`,
+        oneGroup(phrase.recordIds, `${currentContext()} · exact wording within ${theme.name}`));
+      break;
+    }
+  }
+  if (actions.childElementCount) add(section, actions);
+  add(canvas, section);
 }
 function renderVisual(name) {
   if (!document.getElementById('evidencePanel').hidden) closeEvidence(false);
   const canvas = document.getElementById('visualCanvas');
   canvas.replaceChildren();
   const spec = name === 'phrases' ? languageConfig : data.visuals[name];
-  add(canvas, el('h3', spec.title), el('p', spec.question, 'visual-question'));
-  if (name !== 'migration') add(canvas, el('p', spec.caption, 'visual-caption'));
+  document.getElementById('visualPeriods').textContent = `Current: ${dateLabel(scope.current)} · ${format(data.periodTotals.current)} analyzed` +
+    (scope.comparison ? ` · Previous: ${dateLabel(scope.comparison)} · ${format(data.periodTotals.comparison)} analyzed` : ' · Comparison off');
+  renderVisualInterpretation(canvas, name, spec.title);
   ({ sentiment: renderSentiment, domains: renderDomains, movement: renderMovementVisual,
     migration: renderMigrationVisual, phrases: renderRecurringLanguage })[name](canvas);
   for (const button of document.querySelectorAll('[data-visual]'))
@@ -898,7 +993,8 @@ function activateWorkspace(key, focus = true) {
   const isJourney = key === 'journey-mapping';
   const workspaceDates = document.getElementById('workspaceDates');
   workspaceDates.hidden = isJourney;
-  const dateHome = document.getElementById(key === 'executive-summary' ? 'executiveDateSlot' : 'workspaceDateHome');
+  const dateSlots = { 'executive-summary': 'executiveDateSlot', 'visual-intelligence': 'visualDateSlot' };
+  const dateHome = document.getElementById(dateSlots[key] || 'workspaceDateHome');
   if (workspaceDates.parentElement !== dateHome) dateHome.append(workspaceDates);
   document.getElementById(isJourney ? 'journeyDateSlot' : 'workspaceDateSlot').append(dateControls);
   if (isJourney) {
@@ -943,13 +1039,6 @@ document.getElementById('journeySectionHeading').addEventListener('focus', () =>
   if (activeWorkspace !== 'journey-mapping') navigateWorkspace('journey-mapping');
 });
 function setVisuals() {
-  const toggle = document.getElementById('visualToggle');
-  const panel = document.getElementById('visualPanel');
-  toggle.addEventListener('click', () => {
-    panel.hidden = !panel.hidden;
-    toggle.setAttribute('aria-expanded', String(!panel.hidden));
-    toggle.textContent = panel.hidden ? 'Explore visuals' : 'Hide visuals';
-  });
   for (const button of document.querySelectorAll('[data-visual]'))
     button.addEventListener('click', () => renderVisual(button.dataset.visual));
   renderVisual('sentiment');
@@ -1013,9 +1102,6 @@ const resultsExperience = document.getElementById('resultsExperience');
 document.getElementById('loadDemoButton').addEventListener('click', () => {
   startExperience.hidden = true;
   resultsExperience.hidden = false;
-  document.getElementById('visualPanel').hidden = false;
-  document.getElementById('visualToggle').setAttribute('aria-expanded', 'true');
-  document.getElementById('visualToggle').textContent = 'Hide visuals';
   document.documentElement.scrollTop = 0;
   const key = workspaceFromHash();
   window.history.replaceState(null, '', '#' + key);
@@ -1049,10 +1135,6 @@ document.getElementById('newAnalysisButton').addEventListener('click', () => {
   document.getElementById('feedbackList').replaceChildren();
   feedbackShown = 0;
   document.getElementById('feedbackCount').textContent = '';
-  const visualToggle = document.getElementById('visualToggle');
-  visualToggle.setAttribute('aria-expanded', 'false');
-  visualToggle.textContent = 'Explore visuals';
-  document.getElementById('visualPanel').hidden = true;
   renderVisual('sentiment');
   resultsExperience.hidden = true;
   startExperience.hidden = false;

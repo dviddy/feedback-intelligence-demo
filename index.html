@@ -80,8 +80,16 @@
       <div id="summaryExperiences" class="summary-experiences"></div><div class="workspace-next"><a href="#experience-intelligence" data-workspace="experience-intelligence">Explore Experience Intelligence →</a><a href="#journey-mapping" data-workspace="journey-mapping">Open Journey Mapping →</a></div>
       <details class="summary-detail"><summary>View sentiment, effort and priority distribution</summary><div id="distribution" class="distribution"></div></details>
     </section>
-    <section data-workspace-view="visual-intelligence" hidden class="visual-section" aria-labelledby="visualHeading"><div class="visual-overview"><div><p class="eyebrow">02 / See the pattern</p><h2 id="visualHeading" tabindex="-1">Visual Intelligence</h2><p>Five executive views, each linked to supporting synthetic feedback.</p></div><button id="visualToggle" type="button" aria-expanded="false" aria-controls="visualPanel">Explore visuals</button></div>
-      <div id="visualPanel" hidden><div class="visual-nav" role="group" aria-label="Visual intelligence views">
+    <section data-workspace-view="visual-intelligence" hidden class="visual-section" aria-labelledby="visualHeading">
+      <header class="executive-header visual-header">
+        <div class="executive-banner">
+          <h1 id="visualHeading" tabindex="-1">Visual Intelligence</h1>
+          <p>See how member experience signals are distributed, concentrated, and changing.</p>
+          <p id="visualPeriods" class="executive-periods"></p>
+        </div>
+        <div id="visualDateSlot"></div>
+      </header>
+      <div id="visualPanel"><div class="visual-nav" role="group" aria-label="Visual intelligence views">
         <button type="button" data-visual="sentiment" aria-pressed="true">Sentiment Mix</button>
         <button type="button" data-visual="domains" aria-pressed="false">Experience Concentration</button>
         <button type="button" data-visual="movement" aria-pressed="false">Trend Movement</button>
