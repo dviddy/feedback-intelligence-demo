@@ -32,7 +32,7 @@ test('Legacy summary measures remain directly visible in original order alongsid
     'Emerging Experiences','Needs More Evidence','Digital → Assisted'
   ]);
   assert.equal(d.querySelector('.executive-support > p').textContent,
-    'Selected-period record measures and experience identities. These describe feedback, not all members.');
+    'Counts describe feedback, not all members.');
   assert.equal(d.querySelector('.legacy-summary'),null);
   assert.equal(metrics.parentElement.previousElementSibling.className,'executive-qualifier');
   assert.equal(metrics.parentElement.nextElementSibling.id,'positiveSignals');
@@ -69,7 +69,8 @@ test('Four shares, unrounded pp deltas, semantics and each current/previous evid
     d.querySelectorAll('#evidenceChoices button')[1].click();assert.match(d.getElementById('evidenceContext').textContent,new RegExp(`${p.length} supporting.*Previous period`));
     assert.deepEqual(allEvidenceIds(d),Array.from(p,row=>row.id).sort());
   }
-  assert.match(d.getElementById('executiveHeadline').textContent,/^High effort is higher in the current period\. Negative sentiment share rose, while high priority share stayed stable/);
+  assert.equal(d.getElementById('executiveHeadline').textContent,'High effort is higher in the current period.');
+  assert.match(d.getElementById('executiveSupporting').textContent,/is the leading Established Trend in the selected feedback\.$/);
   dom.window.close();
 });
 test('Explicit comparison OFF survives navigation, manual dates and All Data have truthful fallback',()=>{
@@ -103,8 +104,9 @@ test('Rounding suppresses contradictory arrows and stable headline claims no uns
 });
 test('Mixed executive headline selects supported unfavorable and favorable movement without causality',()=>{
  const {dom,d}=app(f=>{for(const r of f.records){const current=r.date>='2026-07-03';r.sentiment=current?'Positive':'Negative';r.effort=current?'High':'Low';r.priority='Low';}});
- const narrative=d.getElementById('executiveHeadline').textContent;
- assert.match(narrative,/^High effort is higher in the current period\. Negative sentiment share fell, while high priority share stayed stable/);
+ const narrative=d.getElementById('executiveHeadline').textContent+' '+d.getElementById('executiveSupporting').textContent;
+ assert.match(narrative,/^High effort is higher in the current period\./);
+ assert.match(d.getElementById('executiveSupporting').textContent,/is the leading Established Trend/);
  assert.doesNotMatch(narrative,/caused|drove|due to|significant|dramatic|crisis|deterioration|churn|attrition|financial impact|worsening/i);dom.window.close();
 });
 
@@ -116,7 +118,7 @@ test('Executive Perspective names the leading established trend and opens its ex
       current:[d.getElementById('currentStart').value,d.getElementById('currentEnd').value],comparison:null
     }).topTrends[0];
     const action=d.querySelector('#executivePerspectiveEvidence button');
-    assert.match(d.getElementById('executiveHeadline').textContent,new RegExp(lead.name));
+    assert.match(d.getElementById('executiveSupporting').textContent,new RegExp(lead.name));
     action.click();
     assert.equal(d.getElementById('evidenceHeading').textContent,`Supporting feedback for: ${lead.name}`);
     assert.deepEqual(allEvidenceIds(d),[...lead.recordIds].sort());
@@ -127,5 +129,42 @@ test('Executive Perspective names the leading established trend and opens its ex
   checkEvidence();
   change('periodPreset','30');apply();
   checkEvidence();
+  dom.window.close();
+});
+
+test('Executive storytelling separates the briefing and experience identities while preserving exact populations',()=>{
+  const {dom,d,w}=app();
+  const projection=w.FEEDBACK_DEMO_PRESENTATION.project(w.FEEDBACK_DEMO_DATA,w.FEEDBACK_RECURRING_LANGUAGE,{
+    current:['2026-07-03','2026-09-30'],comparison:['2026-04-04','2026-07-02']
+  });
+  assert.equal(d.getElementById('executiveSupportHeading').textContent,'Experience Snapshot');
+  assert.ok(d.getElementById('executiveHeadline').textContent);
+  assert.ok(d.getElementById('executiveSupporting').textContent);
+  assert.equal(d.querySelector('#executiveSupporting + div').id,'executivePerspectiveEvidence');
+  const groups=[...d.querySelectorAll('.summary-experience-group')];
+  assert.deepEqual(groups.map(group=>group.dataset.kind),['established','emerging']);
+  const populations=[projection.topTrends,projection.emerging.filter(row=>row.count>=2).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name))];
+  groups.forEach((group,index)=>{
+    assert.equal(group.querySelector('h2').id,group.getAttribute('aria-labelledby'));
+    const expected=populations[index].slice(0,3);
+    assert.deepEqual([...group.querySelectorAll('strong')].map(node=>node.textContent),Array.from(expected,row=>row.name));
+    assert.deepEqual([...group.querySelectorAll('.summary-count')].map(node=>node.getAttribute('aria-label')),
+      Array.from(expected,row=>`${row.count} supporting records`));
+    [...group.querySelectorAll('button')].forEach((button,i)=>{
+      assert.equal(button.getAttribute('aria-label'), `View ${expected[i].count} supporting records for ${expected[i].name}`);
+      button.click();
+      assert.deepEqual(allEvidenceIds(d),[...expected[i].recordIds].sort());
+      d.getElementById('closeEvidence').click();
+      assert.equal(d.activeElement,button);
+    });
+  });
+  for(const [field,value] of [['sentiment','Positive'],['effort','Low']]){
+    const expected=projection.records.filter(row=>row[field]===value);
+    const signal=d.querySelector(`#positiveSignals [data-signal="${field}"]`);
+    if(!expected.length){assert.equal(signal,null);continue;}
+    signal.querySelector('button').click();
+    assert.deepEqual(allEvidenceIds(d),Array.from(expected,row=>row.id).sort());
+  }
+  assert.doesNotMatch(d.querySelector('.summary-section').textContent,/risk score|severity score|impact score|confidence percentage|financial impact/i);
   dom.window.close();
 });

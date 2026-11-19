@@ -646,6 +646,142 @@ body:has(#resultsExperience[data-workspace="executive-summary"]:not([hidden])) {
   .executive-kpis { grid-template-columns:minmax(0,1fr); }
 }
 
+/* Executive Summary storytelling. These treatments stay within this workspace. */
+.summary-section .executive-perspective { padding-block:4px; }
+.summary-section .executive-perspective h2 { font-size:13px; letter-spacing:.04em; }
+.summary-section #executiveHeadline {
+  max-width:40ch;
+  font-size:clamp(24px,2.8vw,34px);
+  font-weight:600;
+  line-height:1.25;
+  letter-spacing:-.025em;
+  color:var(--navy);
+}
+.summary-section #executiveSupporting { margin-top:12px; max-width:100ch; font-size:16px; line-height:1.6; }
+.summary-section #executiveSupporting:empty { display:none; }
+.summary-section #executivePerspectiveEvidence { margin-top:8px; }
+.summary-section .executive-kpi { border-color:#dce1e5; border-top:3px solid #7b8997; background:#fcfcfb; padding:18px; }
+.summary-section .executive-kpi[data-kpi="Negative sentiment"] { border-top-color:#a56b78; background:#faf3f5; }
+.summary-section .executive-kpi[data-kpi="High effort"] { border-top-color:#98534b; background:#f6ece8; }
+.summary-section .executive-kpi[data-kpi="High priority"] { border-color:#d6dfe6; border-top-color:#627b90; background:#edf2f6; }
+.summary-section .executive-kpi[data-kpi="Positive sentiment"] { border-top-color:#62836f; background:#f1f6f2; }
+.summary-section .executive-kpi[data-kpi="Negative sentiment"] .executive-value { color:#854655; }
+.summary-section .executive-kpi[data-kpi="High effort"] .executive-value { color:#854139; }
+.summary-section .executive-kpi[data-kpi="Positive sentiment"] .executive-value { color:#37654c; }
+.summary-section .executive-value { font-size:clamp(38px,4vw,48px); margin-block:12px; }
+.summary-section .executive-delta.unfavorable { color:#914958; }
+.summary-section .executive-delta.favorable { color:#37654c; }
+.summary-section .executive-delta { margin-bottom:12px; }
+.summary-section .executive-kpi .evidence-action { font-size:12px; font-weight:500; margin-top:8px; }
+.summary-section .executive-kpi .row-meta { font-size:11px; }
+.summary-section .executive-support { margin-top:38px; padding-top:22px; border-top:1px solid #d8d2c9; }
+.summary-section .executive-support h2 { font-size:21px; letter-spacing:-.35px; }
+.summary-section .executive-support > p { margin:7px 0 18px; }
+.summary-section #summaryMetrics { gap:14px; }
+.summary-section #summaryMetrics .metric {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  min-height:156px;
+  padding:16px;
+  border:1px solid #c9c5bd!important;
+  background:#f8f6f1;
+  border-radius:6px;
+}
+.summary-section #summaryMetrics .metric-value { font-size:25px; margin:8px 0 6px; }
+.summary-section #summaryMetrics .metric[data-metric="Needs More Evidence"] .metric-value { font-size:20px; }
+.summary-section #summaryMetrics .metric-context { line-height:1.4; }
+.summary-section #summaryMetrics .evidence-action { font-size:12px; min-height:36px; line-height:1.4; margin-top:auto; text-align:left; max-width:100%; overflow-wrap:anywhere; }
+.summary-section #summaryMetrics .metric[data-metric="Feedback Analyzed"] { background:#f3f5f7; border-color:#cbd3da!important; }
+.summary-section #summaryMetrics .metric[data-metric="Negative Share"] { background:#fcf7f8; border-color:#ddc8cf!important; }
+.summary-section #summaryMetrics .metric[data-metric="High Effort"] { background:#fbf5f2; border-color:#d9c3bb!important; }
+.summary-section #summaryMetrics .metric[data-metric="High Priority"] { background:#f4f6f8; border-color:#cbd4de!important; }
+.summary-section #summaryMetrics .metric[data-metric="Established Trends"] { background:#f3f7fa; border-color:#c7d5df!important; }
+.summary-section #summaryMetrics .metric[data-metric="Emerging Experiences"] { background:#faf7f0; border-color:#dbd0b8!important; }
+.summary-section #summaryMetrics .metric[data-metric="Needs More Evidence"] { background:#f5f5f3; border-color:#d0d0ca!important; }
+.summary-section #summaryMetrics .metric[data-metric="Digital → Assisted"] { background:#f2f8f7; border-color:#c5d7d3!important; }
+.summary-section #positiveSignals { width:fit-content; max-width:100%; border:0; border-left:3px solid #62836f; background:#f1f6f2; padding:14px 18px; margin-top:24px; }
+.summary-section #positiveSignals .positive-signal-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 24px; }
+.summary-section #positiveSignals .positive-signal-list:has(> :only-child) { grid-template-columns:minmax(0,1fr); }
+.summary-section #positiveSignals h3 { font-size:16px; margin-bottom:12px; }
+.summary-section .summary-experiences { gap:20px; margin-top:28px; }
+.summary-section .summary-experience-group { min-width:0; padding:20px; background:#f0f4f7; border-top:3px solid #617e95; border-radius:4px; }
+.summary-section .summary-experience-group[data-kind="emerging"] { background:#f6f1e7; border-top-color:#b49860; }
+.summary-section .summary-experience-group h2 { font-size:19px; letter-spacing:-.3px; margin-bottom:7px; }
+.summary-section .summary-group-description { color:var(--muted); font-size:12px; line-height:1.5; margin:0 0 20px; }
+.summary-section .summary-experience { display:block; border:0; padding:18px 0; }
+.summary-section .summary-experience + .summary-experience { border-top:1px solid rgba(83,102,117,.15); }
+.summary-section .summary-experience-heading { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:12px; }
+.summary-section .summary-experience strong { display:block; font-size:15px; line-height:1.4; }
+.summary-section .summary-experience strong { overflow-wrap:anywhere; }
+.summary-section .summary-experience:first-of-type { padding:16px; margin-bottom:4px; background:#e5edf3; border-radius:4px; }
+.summary-section .summary-experience:first-of-type strong { font-size:18px; font-weight:650; }
+.summary-section .summary-count { display:inline-block; min-width:34px; padding:3px 8px; border-radius:4px; background:#dce7ef; color:#28465d; text-align:center; font-size:14px; font-weight:650; font-variant-numeric:tabular-nums; }
+.summary-section [data-kind="emerging"] .summary-experience:first-of-type { background:#eee5d2; }
+.summary-section [data-kind="emerging"] .summary-count { background:#e8dcc2; color:#66512e; }
+.summary-section .summary-experience .evidence-action { min-height:36px; max-width:100%; white-space:normal; text-align:left; }
+.summary-section .workspace-next { display:flex; flex-wrap:wrap; gap:10px; margin-top:24px; padding:0; border:0; }
+.summary-section .workspace-next a { padding:10px 14px; border:1px solid #d5dfe6; border-radius:4px; font-size:13px; font-weight:600; text-decoration:none; background:#f0f4f7; }
+.summary-section .workspace-next a:hover { text-decoration:underline; }
+.summary-section .summary-detail { margin-top:12px; padding-top:0; border:0; }
+.summary-section .summary-detail > summary { font-size:12px; font-weight:500; color:var(--muted); }
+@media(max-width:600px) {
+  .summary-section .executive-kpis { grid-template-columns:minmax(0,1fr); }
+  .summary-section .executive-kpi { padding:18px; }
+  .summary-section .summary-experience-group { padding:16px; }
+  .summary-section #positiveSignals .positive-signal-list { grid-template-columns:minmax(0,1fr); }
+  .summary-section .workspace-next a { width:100%; }
+}
+@media(max-width:480px) {
+  .summary-section #summaryMetrics { grid-template-columns:minmax(0,1fr); gap:12px; }
+}
+footer .footer-disclosure-line { display:inline; margin:0; }
+/* Final mobile spacing is limited to the Executive Summary. */
+@media(max-width:600px) {
+  #resultsExperience[data-workspace="executive-summary"] .section-nav {
+    gap:2px 8px;
+    margin:12px 0;
+    padding:8px 0;
+  }
+  #resultsExperience[data-workspace="executive-summary"] .section-nav a {
+    min-height:44px;
+    display:flex;
+    align-items:center;
+    padding:8px 10px;
+  }
+  .summary-section .executive-header { margin-bottom:20px; }
+  .summary-section .executive-perspective { margin-bottom:22px; }
+  .summary-section .executive-kpis { gap:10px; }
+  .summary-section .executive-kpi { padding:16px; }
+  .summary-section .executive-support { margin-top:28px; padding-top:18px; }
+  .summary-section .executive-support > p { margin-bottom:14px; }
+  .summary-section #summaryMetrics { gap:10px; }
+  .summary-section #summaryMetrics .metric { min-height:140px; padding:14px 16px; }
+  .summary-section #positiveSignals { width:100%; margin-top:20px; padding:14px 16px; }
+  .summary-section .summary-experiences { margin-top:22px; gap:16px; }
+  .summary-section .summary-experience { padding-block:14px; }
+  .summary-section .workspace-next { margin:20px 0 12px; gap:8px; }
+  .summary-section .workspace-next a { min-height:44px; padding:10px 12px; }
+  .summary-section .summary-detail { margin-top:8px; }
+  .summary-section .summary-detail > summary { min-height:44px; padding-block:10px; }
+  .summary-section .evidence-action { min-height:44px; }
+  #resultsExperience[data-workspace="executive-summary"] > footer {
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    margin-top:24px;
+    line-height:1.6;
+  }
+  #resultsExperience[data-workspace="executive-summary"] > footer > span { margin:0; }
+  #resultsExperience[data-workspace="executive-summary"] > footer > span:last-child {
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  #resultsExperience[data-workspace="executive-summary"] > footer .footer-disclosure-line { display:block; }
+  #resultsExperience[data-workspace="executive-summary"] > footer [aria-hidden="true"] { display:none; }
+}
+
 /* PD.2L.1A — cinematic launch. All overrides end when the demo opens. */
 body:has(#startExperience:not([hidden])) { background:#0B1D30; }
 body:has(#startExperience:not([hidden])) .site-header { background:#0B1D30; border-color:#26394B; }

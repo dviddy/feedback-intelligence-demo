@@ -113,7 +113,6 @@ function renderExecutiveKpis() {
   document.getElementById('executivePeriods').textContent = `Current: ${dateLabel(scope.current)} · ${format(records.length)} analyzed` +
     (scope.comparison ? ` · Previous: ${dateLabel(scope.comparison)} · ${format(prior.length)} analyzed` : ' · Comparison unavailable');
   const movements = [];
-  const stableLabels = [];
   for (const [label, field, value, positive] of [
     ['Negative sentiment', 'sentiment', 'Negative', false], ['High effort', 'effort', 'High', false],
     ['High priority', 'priority', 'High', false], ['Positive sentiment', 'sentiment', 'Positive', true]
@@ -137,16 +136,18 @@ function renderExecutiveKpis() {
       ]));
     target.append(card);
     if (available && !stable) movements.push({label, delta, favorable});
-    if (stable) stableLabels.push(label.toLowerCase());
   }
-  renderExecutivePerspective(available, movements, stableLabels);
+  renderExecutivePerspective(available, movements);
 }
-function renderExecutivePerspective(available, movements, stableLabels) {
+function renderExecutivePerspective(available, movements) {
   const narrative = document.getElementById('executiveHeadline');
+  const supporting = document.getElementById('executiveSupporting');
+  supporting.textContent = '';
   const evidence = document.getElementById('executivePerspectiveEvidence');
   evidence.replaceChildren();
   if (!records.length) {
-    narrative.textContent = 'No analyzed feedback in the selected period. Choose another date range to review feedback.';
+    narrative.textContent = 'No analyzed feedback in the selected period.';
+    supporting.textContent = 'Choose another date range to review feedback.';
     return;
   }
   const sentences = [];
@@ -157,38 +158,33 @@ function renderExecutivePerspective(available, movements, stableLabels) {
   } else {
     movements.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
     const lead = movements.find(row => !row.favorable) || movements[0];
-    const secondary = movements.find(row => row.favorable !== lead.favorable) || movements.find(row => row !== lead);
     const direction = row => row.label === 'High effort' && row.delta > 0 ?
       'High effort is higher in the current period' : `${row.label} share ${row.delta > 0 ? 'rose' : 'fell'}`;
-    const stable = stableLabels[0];
     sentences.push(`${direction(lead)}.`);
-    if (secondary) {
-      sentences.push(`${direction(secondary)}${stable ? `, while ${stable} share stayed stable at displayed precision` : ''}.`);
-    } else if (stable) {
-      sentences.push('The other three feedback shares stayed stable at displayed precision.');
-    }
+
   }
   const trend = data.topTrends[0];
   if (trend) {
-    sentences.push(`Review ${trend.name}, the Established Trend with the most supporting feedback in the selected period (${format(trend.count)} records).`);
+    sentences.push(`${trend.name} is the leading Established Trend in the selected feedback.`);
     evidence.append(evidenceAction(`View supporting feedback for ${trend.name}`, trend.name,
       oneGroup(trend.recordIds, currentContext() + ' · Established Trend')));
   } else if (sentences.length < 3) {
     sentences.push('Use the measures below to review supporting feedback.');
   }
-  narrative.textContent = sentences.join(' ');
+  narrative.textContent = sentences[0];
+  supporting.textContent = sentences.slice(1).join(' ');
 }
 function setSummary() {
   renderExecutiveKpis();
   const summary = data.summary;
   const metrics = [
-    ['Feedback Analyzed', format(summary.total), 'Precomputed synthetic records', records.map(r => r.id)],
+    ['Feedback Analyzed', format(summary.total), 'Synthetic feedback', records.map(r => r.id)],
     ['Negative Share', percent(summary.sentiment.Negative, summary.total), `${format(summary.sentiment.Negative)} records`, records.filter(r => r.sentiment === 'Negative').map(r => r.id)],
     ['High Effort', format(summary.effort.High), `${percent(summary.effort.High, summary.total)} of selected feedback`, records.filter(r => r.effort === 'High').map(r => r.id)],
     ['High Priority', format(summary.priority.High), `${percent(summary.priority.High, summary.total)} of selected feedback`, records.filter(r => r.priority === 'High').map(r => r.id)],
-    ['Established Trends', summary.established, 'Experience identities with selected-period evidence', data.establishedPresence.flatMap(r => r.recordIds)],
-    ['Emerging Experiences', summary.emerging, 'Provisional identities with selected-period evidence', data.emerging.flatMap(r => r.recordIds)],
-    ['Needs More Evidence', 'Not available', 'Withheld-signal assignments are not included in this fixture', null],
+    ['Established Trends', summary.established, 'Observed identities', data.establishedPresence.flatMap(r => r.recordIds)],
+    ['Emerging Experiences', summary.emerging, 'Provisional identities', data.emerging.flatMap(r => r.recordIds)],
+    ['Needs More Evidence', 'Not available', 'Withheld signals absent from fixture', null],
     ['Digital → Assisted', percent(summary.migrated, summary.eligibleDigital, 1), `${summary.migrated} of ${summary.eligibleDigital} eligible records`,
       null, [
         { label: 'Eligible', recordIds: data.migration.origins.flatMap(r => r.eligibleRecordIds), context: currentContext() + ' · eligible digital friction' },
@@ -292,10 +288,21 @@ function installToggles() {
 function renderSummaryExperiences() {
   const target = document.getElementById('summaryExperiences'); target.replaceChildren();
   for (const [label, rows] of [['Leading Established Trends', data.topTrends], ['Emerging Experiences', data.emerging.filter(row => row.count >= 2).sort((a,b) => b.count-a.count || a.name.localeCompare(b.name))]]) {
-    const section = el('section'); add(section, el('h3', label));
+    const section = el('section', undefined, 'summary-experience-group');
+    section.dataset.kind = label === 'Leading Established Trends' ? 'established' : 'emerging';
+    const heading = el('h2', label); heading.id = `summary-${section.dataset.kind}-heading`;
+    section.setAttribute('aria-labelledby', heading.id);
+    add(section, heading, el('p', section.dataset.kind === 'established' ?
+      'Known patterns with selected-period evidence' : 'Provisional experiences with selected-period evidence', 'summary-group-description'));
     for (const row of rows.slice(0, 3)) {
       const item = el('div', undefined, 'summary-experience');
-      add(item, el('strong', row.name), evidenceAction(`${row.count} supporting records`, row.name, oneGroup(row.recordIds, currentContext() + ' · ' + label)));
+      const name = el('div', undefined, 'summary-experience-heading');
+      const count = el('span', format(row.count), 'summary-count');
+      count.setAttribute('aria-label', `${row.count} supporting records`);
+      add(name, el('strong', row.name), count);
+      const action = evidenceAction('View supporting feedback', row.name, oneGroup(row.recordIds, currentContext() + ' · ' + label));
+      action.setAttribute('aria-label', `View ${row.count} supporting records for ${row.name}`);
+      add(item, name, action);
       add(section, item);
     }
     if (!rows.length) add(section, el('p', 'No recurring experiences in this selected period.', 'row-meta'));
