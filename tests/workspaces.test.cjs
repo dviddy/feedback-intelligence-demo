@@ -30,7 +30,7 @@ test('Seven independent workspaces expose exactly one primary view and one activ
   assert.equal(themes.textContent,'Recurring Themes');
   assert.equal(themes.getAttribute('href'),'#recurring-language');
   assert.equal(d.getElementById('languageHeading').textContent,'Recurring Themes');
-  assert.equal(d.querySelector('[data-visual="phrases"]').textContent,'Recurring Language');
+  assert.equal(d.querySelector('[data-visual="phrases"]').textContent,'Recurring Themes');
   for (const key of keys) {
     nav(key);assert.deepEqual(visible(),[key]); assert.equal(dom.window.location.hash,'#'+key);
     const current=d.querySelectorAll('.section-nav [aria-current]');assert.equal(current.length,1);assert.equal(current[0].dataset.workspace,key);

@@ -74,7 +74,7 @@ test('Digital-to-assisted primary rate and origin/destination shares use their e
     const headline=d.querySelector('.migration-headline');assert.match(headline.textContent,new RegExp(`${m.migrated} of ${m.eligible} eligible digital-friction records`));assert.ok(headline.textContent.includes(share(m.migrated,m.eligible)+' moved to assisted support'));
     near(parseFloat(headline.querySelector('.chart-fill').style.width),100*m.migrated/m.eligible);assert.match(headline.textContent,/Not a percentage of all customers, members or interactions/);
     const rows=[...d.querySelectorAll('#visualCanvas .chart-row')];
-    for(const [i,e]of m.origins.entries()){assert.ok(rows[i].textContent.includes(e.eligible+' records · '+share(e.eligible,m.eligible)));assert.match(rows[i].textContent,/of eligible digital-friction records/);near(parseFloat(rows[i].querySelector('.chart-fill').style.width),100*e.eligible/m.eligible);}
+    for(const [i,e]of m.origins.entries()){assert.ok(rows[i].textContent.includes(e.eligible+' records · '+share(e.eligible,m.eligible)));assert.match(rows[i].getAttribute('aria-description'),/of eligible digital-friction records/);near(parseFloat(rows[i].querySelector('.chart-fill').style.width),100*e.eligible/m.eligible);}
     for(const [i,e]of m.destinations.entries()){const row=rows[i+m.origins.length];assert.ok(row.textContent.includes(e.migrated+' transitions · '+share(e.migrated,m.migrated)));assert.match(row.textContent,/of assisted transitions/);near(parseFloat(row.querySelector('.chart-fill').style.width),100*e.migrated/m.migrated);row.click();assert.ok([...d.querySelectorAll('#evidenceList h3')].every(n=>e.recordIds.includes(n.textContent)));}
   }b.dom.window.close();
 });
@@ -139,7 +139,7 @@ test('Visual Intelligence title and five native view controls precede the select
   b.compare();
   assert.match(d.getElementById('visualPeriods').textContent,/Current: 2026-07-01.*Previous: 2026-04-01/);
   const tabs=[...d.querySelectorAll('.visual-nav button')];
-  assert.deepEqual(tabs.map(tab=>tab.textContent),['Sentiment Mix','Experience Concentration','Trend Movement','Digital → Assisted','Recurring Language']);
+  assert.deepEqual(tabs.map(tab=>tab.textContent),['Sentiment Mix','Experience Concentration','Trend Movement','Digital → Assisted','Recurring Themes']);
   for(const tab of tabs){
     tab.focus();
     tab.click();
@@ -217,6 +217,127 @@ test('Interpretations reconcile to existing figures and exact, separate evidence
     assertEvidence(row.currentRecordIds);
     d.querySelector('#evidenceChoices button:nth-child(2)').click();
     assertEvidence(row.comparisonRecordIds);
+  }
+  b.w.close();
+});
+
+test('Two-view hierarchy uses existing measure shares and independently ranked classification leaders',()=>{
+  const b=app(),{d}=b;
+  for(const preset of ['all','30']){
+    b.preset(preset);
+    const p=b.project({current:preset==='all'?null:['2026-09-01','2026-09-30'],comparison:null});
+    d.querySelector('[data-visual="sentiment"]').click();
+    for(const [field,value,label] of [['sentiment','Negative','negative sentiment'],['effort','High','high effort'],['priority','High','high priority']]){
+      const module=d.querySelector(`#visualCanvas [data-dimension="${field}"]`);
+      assert.equal(module.querySelector('.dimension-headline strong').textContent,share(p.summary[field][value],p.summary.total));
+      assert.ok(module.querySelector('.dimension-headline').textContent.includes(label));
+      assert.equal(module.querySelectorAll('.breakdown-choice').length,3);
+    }
+    d.querySelector('[data-visual="domains"]').click();
+    const emerging=p.emerging.filter(row=>row.count>=2).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name));
+    for(const [kind,rows] of [['established',p.established],['emerging',emerging]]){
+      const panel=d.querySelector(`#visualCanvas .concentration-group[data-kind="${kind}"]`);
+      const leader=panel.querySelector('.concentration-leader');
+      assert.ok(leader.textContent.includes(rows[0].name));
+      assert.equal(panel.querySelectorAll('.concentration-leader').length,1);
+      near(parseFloat(leader.querySelector('.chart-fill').style.width),100*rows[0].count/p.summary.total);
+      assert.ok(leader.textContent.includes('View supporting feedback'));
+    }
+    assert.ok(!/critical|high risk|severity score/i.test(d.getElementById('visualCanvas').textContent));
+  }
+  b.w.close();
+});
+
+test('Trend Movement cards and full comparisons retain exact counts, widths, states and separate evidence',()=>{
+  const b=app(),{d}=b;
+  b.compare();
+  d.querySelector('[data-visual="movement"]').click();
+  const p=b.project({current:['2026-07-01','2026-09-30'],comparison:['2026-04-01','2026-06-30']});
+  const expected=['Increasing','Decreasing'].map(label=>p.movement.filter(row=>row.label===label&&Number.isFinite(row.percentageChange))
+    .sort((a,b)=>Math.abs(b.percentageChange)-Math.abs(a.percentageChange)||b.currentCount-a.currentCount||a.name.localeCompare(b.name))[0]).filter(Boolean);
+  const cards=[...d.querySelectorAll('#visualCanvas .visual-movement-highlight')];
+  assert.equal(cards.length,expected.length);
+  for(const [i,row] of expected.entries()){
+    assert.equal(cards[i].dataset.state,row.label);
+    assert.equal(cards[i].querySelector('h3').textContent,row.name);
+    assert.equal(cards[i].querySelector('.movement-card-counts').textContent,`${row.currentCount} current · ${row.comparisonCount} prior`);
+    cards[i].querySelector('button').click();
+    for(const [index,ids] of [row.currentRecordIds,row.comparisonRecordIds].entries()){
+      d.querySelectorAll('#evidenceChoices button')[index].click();
+      while(!d.getElementById('moreEvidence').hidden)d.getElementById('moreEvidence').click();
+      assert.deepEqual([...d.querySelectorAll('#evidenceList h3')].map(n=>n.textContent).sort(),[...ids].sort());
+    }
+    d.getElementById('closeEvidence').click();
+    assert.equal(d.activeElement,cards[i].querySelector('button'));
+  }
+  d.querySelector('#visualCanvas > .chart-more').click();
+  assert.equal(d.getElementById('remainingMovement').hidden,false);
+  const rows=[...d.querySelectorAll('#visualCanvas .movement-chart-row')];
+  assert.equal(rows.length,p.movement.length);
+  const max=Math.max(...p.movement.flatMap(row=>[row.currentCount,row.comparisonCount]),1);
+  for(const [i,row] of rows.entries()){
+    const expectedRow=p.movement[i];
+    assert.equal(row.dataset.state,expectedRow.label);
+    const periodValues=row.querySelectorAll('.movement-period-values > span');
+    assert.equal(periodValues[0].textContent,`Current${expectedRow.currentCount} · ${share(expectedRow.currentCount,p.periodTotals.current)}`);
+    assert.equal(periodValues[1].textContent,`Prior${expectedRow.comparisonCount} · ${share(expectedRow.comparisonCount,p.periodTotals.comparison)}`);
+    near(parseFloat(row.querySelector('.current .chart-fill').style.width),100*expectedRow.currentCount/max);
+    near(parseFloat(row.querySelector('.comparison .chart-fill').style.width),100*expectedRow.comparisonCount/max);
+    assert.equal(row.querySelector('.movement-evidence').textContent,'Compare supporting feedback');
+  }
+  assert.ok(!/Improved|Resolved|Better experience/.test(d.getElementById('visualCanvas').textContent));
+  assert.match(d.getElementById('visualCanvas').textContent,/each share uses its own period/);
+  assert.match(d.getElementById('visualCanvas').textContent,/Zero observations do not imply resolution/);
+  b.w.close();
+});
+
+test('Digital-assisted panels feature dynamic leaders and retain complete origin evidence groups',()=>{
+  const b=app(),{d}=b;
+  for(const [preset,current] of [['all',null],['30',['2026-09-01','2026-09-30']]]){
+    b.preset(preset);
+    d.querySelector('[data-visual="migration"]').click();
+    const m=b.project({current,comparison:null}).migration;
+    const origin=m.origins.reduce((best,row)=>row.eligible>best.eligible?row:best);
+    const destination=m.destinations.reduce((best,row)=>row.migrated>best.migrated?row:best);
+    assert.ok(d.querySelector('.migration-origins .migration-leader').textContent.includes(origin.name));
+    assert.ok(d.querySelector('.migration-destinations .migration-leader').textContent.includes(destination.name));
+    assert.match(d.querySelector('.migration-origins .migration-denominator').textContent,/Share of eligible digital-friction records/);
+    assert.match(d.querySelector('.migration-destinations .migration-denominator').textContent,/Share of assisted transitions/);
+    for(const [i,row] of m.origins.entries()){
+      const button=d.querySelectorAll('.migration-origins .chart-row')[i];
+      button.click();
+      for(const [j,ids] of [row.eligibleRecordIds,row.migratedRecordIds].entries()){
+        d.querySelectorAll('#evidenceChoices button')[j].click();
+        while(!d.getElementById('moreEvidence').hidden)d.getElementById('moreEvidence').click();
+        assert.deepEqual([...d.querySelectorAll('#evidenceList h3')].map(n=>n.textContent).sort(),[...ids].sort());
+      }
+      d.getElementById('closeEvidence').click();
+      assert.equal(d.activeElement,button);
+    }
+  }
+  b.w.close();
+});
+
+test('Recurring Themes keeps exact ordered phrases and isolated standalone workspace markup',()=>{
+  const b=app(),{d}=b;
+  b.nav('recurring-language');
+  const standalone=d.getElementById('languageCanvas').innerHTML;
+  b.nav('visual-intelligence');
+  d.querySelector('[data-visual="phrases"]').click();
+  assert.equal(d.querySelectorAll('.visual-nav button').length,5);
+  assert.equal(d.getElementById('visualViewHeading').textContent,'Recurring Themes');
+  assert.equal(d.getElementById('languageCanvas').innerHTML,standalone);
+  const p=b.project();
+  const rows=[...d.querySelectorAll('#visualCanvas .language-row')];
+  assert.equal(rows.length,6);
+  assert.equal(d.querySelectorAll('#visualCanvas .language-leader').length,1);
+  for(const [i,row] of rows.entries()){
+    const theme=p.recurringLanguage[i];
+    assert.equal(row.querySelector('h3').textContent,theme.name);
+    assert.equal(row.dataset.kind,theme.kind);
+    assert.equal(row.querySelector('.language-count').textContent,`${theme.count} supporting comments`);
+    assert.deepEqual([...row.querySelectorAll('.language-phrase')].map(n=>n.textContent),Array.from(theme.phrases,phrase=>`“${phrase.phrase}” · ${phrase.count}`));
+    assert.ok(theme.phrases.every(phrase=>new Set(phrase.recordIds).size>=3));
   }
   b.w.close();
 });

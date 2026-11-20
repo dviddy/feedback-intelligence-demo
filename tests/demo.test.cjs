@@ -345,7 +345,7 @@ test('Recurring Language themes reuse semantic trend populations and exact phras
   const themes = dom.window.FEEDBACK_DEMO_PRESENTATION.project(dom.window.FEEDBACK_DEMO_DATA, dom.window.FEEDBACK_RECURRING_LANGUAGE).recurringLanguage;
   assert.ok(themes.length > 10);
   assert.equal(new Set(themes.map(theme => theme.id)).size, themes.length);
-  assert.equal(document.querySelector('[data-visual="phrases"]').textContent, 'Recurring Language');
+  assert.equal(document.querySelector('[data-visual="phrases"]').textContent, 'Recurring Themes');
   assert.ok(!html.includes('Key Phrases'));
   for (const theme of themes) {
     const group = data.movement.find(row => row.name === theme.id);
@@ -470,7 +470,7 @@ test('movement, migration and phrase selections preserve their evidence basis', 
   const chat = [...document.querySelectorAll('#visualCanvas .chart-row')].find(button => button.textContent.includes('Chat'));
   chat.click(); assert.match(document.getElementById('evidenceCount').textContent, /20 of 35/);
   document.querySelector('[data-visual="phrases"]').click();
-  assert.ok(document.getElementById('visualCanvas').textContent.includes('Recurring Language'));
+  assert.ok(document.getElementById('visualCanvas').textContent.includes('Recurring Themes'));
   document.querySelector('#visualCanvas .language-phrase').click();
   assert.match(document.getElementById('evidenceHeading').textContent, /couldn't log in/);
   assert.match(document.getElementById('evidenceCount').textContent, /6 of 6/);
