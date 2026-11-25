@@ -98,14 +98,68 @@
         <button type="button" data-visual="phrases" aria-pressed="false">Recurring Themes</button>
       </div><div id="visualCanvas" class="visual-canvas" aria-live="polite"></div></div>
     </section>
-    <section data-workspace-view="experience-intelligence" hidden class="intelligence-section" aria-labelledby="intelligenceHeading"><div class="section-heading"><div><p class="eyebrow">03 / Explore</p><h2 id="intelligenceHeading" tabindex="-1">Experience Intelligence</h2></div><p>Open a topic to examine the supporting synthetic evidence and comparison context.</p></div>
-      <div class="module-grid">
-        <article class="module" aria-labelledby="trendsHeading"><h3 id="trendsHeading">Established Trends</h3><p id="trendsSummary" class="module-summary"></p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="trendsPanel">Explore established trends</button><div id="trendsPanel" class="module-panel" hidden></div></article>
-        <article class="module" aria-labelledby="movementHeading"><h3 id="movementHeading">Trend Movement</h3><p id="movementSummary" class="module-summary"></p><p id="movementPeriod" class="period-caption">Choose a dated period and enable comparison.</p><div id="movementSignals" class="movement-signals"></div><button type="button" class="module-toggle" aria-expanded="false" aria-controls="movementPanel">Explore movement</button><div id="movementPanel" class="module-panel" hidden></div></article>
-        <article class="module" aria-labelledby="emergingHeading"><h3 id="emergingHeading">Emerging Experiences</h3><p id="emergingSummary" class="module-summary"></p><p class="module-note">Provisional recurring experiences. Emerging describes coverage, not recent growth.</p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="emergingPanel">Explore emerging experiences</button><div id="emergingPanel" class="module-panel" hidden></div></article>
-        <article class="module" aria-labelledby="migrationHeading"><h3 id="migrationHeading">Digital → Assisted</h3><p id="migrationSummary" class="module-summary"></p><p class="module-note">Rate applies to eligible analyzed digital-friction feedback records.</p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="migrationPanel">Explore migration</button><div id="migrationPanel" class="module-panel" hidden></div></article>
-        <article class="module needs-evidence" aria-labelledby="needsHeading"><h3 id="needsHeading">Needs More Evidence</h3><p id="needsSummary" class="module-summary">Withheld signals stay visible for review.</p><p class="module-note">Intentionally outside confirmed trend reporting.</p><button type="button" class="module-toggle" aria-expanded="false" aria-controls="needsPanel">Understand this category</button><div id="needsPanel" class="module-panel" hidden></div></article>
+    <section data-workspace-view="experience-intelligence" hidden class="intelligence-section" aria-labelledby="intelligenceHeading">
+      <header class="executive-header intelligence-header">
+        <div class="executive-banner">
+          <h1 id="intelligenceHeading" tabindex="-1">Experience Intelligence</h1>
+          <p>Understand recurring experiences, identify changing patterns, and explore the evidence behind each signal.</p>
+          <div class="executive-periods"><span id="intelligenceCurrentPeriod"></span><span id="intelligencePreviousPeriod"></span></div>
+        </div>
+        <div id="intelligenceDateSlot"></div>
+      </header>
+      <div class="intelligence-coverage">
+        <article aria-labelledby="trendsHeading">
+          <div class="intelligence-preview intelligence-established">
+            <h2 id="trendsHeading">Established Trends</h2>
+            <p id="trendsSummary"><strong class="intelligence-value" id="establishedIdentityCount"></strong> Established experience identities</p>
+            <p class="intelligence-note"><strong id="establishedRecurringCount"></strong> with recurring selected-period evidence</p>
+            <button type="button" class="module-toggle" aria-expanded="false" aria-controls="trendsPanel">Explore established trends</button>
+          </div>
+        </article>
+        <article aria-labelledby="emergingHeading">
+          <div class="intelligence-preview intelligence-emerging">
+            <h2 id="emergingHeading">Emerging Experiences</h2>
+            <p id="emergingSummary"><strong class="intelligence-value" id="emergingExperienceCount"></strong> Provisional experiences with selected-period evidence</p>
+            <p class="intelligence-note">Emerging describes coverage, not recent growth.</p>
+            <button type="button" class="module-toggle" aria-expanded="false" aria-controls="emergingPanel">Explore emerging experiences</button>
+          </div>
+        </article>
+        <section id="trendsPanel" class="module-panel" aria-labelledby="trendsInvestigationHeading" hidden></section>
+        <section id="emergingPanel" class="module-panel" aria-labelledby="emergingInvestigationHeading" hidden></section>
       </div>
+      <article class="intelligence-movement" aria-labelledby="movementHeading">
+        <h2 id="movementHeading">Trend Movement</h2>
+        <p class="intelligence-note">Change in feedback counts between the selected periods.</p>
+        <p id="movementPeriod" class="period-caption"></p>
+        <div id="movementSummary"></div>
+        <div id="movementSignals" class="movement-signals"></div>
+        <p id="movementMethodology" class="intelligence-note" hidden>Percentage changes are relative to comparison-period record counts. Decreasing feedback counts do not establish experience improvement or resolution.</p>
+        <button type="button" class="module-toggle" aria-expanded="false" aria-controls="movementPanel">Explore movement</button>
+        <section id="movementPanel" class="module-panel" aria-labelledby="movementInvestigationHeading" hidden></section>
+      </article>
+      <article class="intelligence-migration" aria-labelledby="migrationHeading">
+        <div class="intelligence-preview">
+          <h2 id="migrationHeading">Digital → Assisted</h2>
+          <div id="migrationSummary">
+            <strong class="intelligence-value" id="intelligenceMigrationRate"></strong>
+            <div class="intelligence-migration-support">
+              <p id="intelligenceMigrationCount"></p>
+              <meter id="intelligenceMigrationIndicator" min="0" aria-hidden="true" hidden></meter>
+              <p class="intelligence-note">Rate applies only to eligible analyzed digital-friction feedback records.</p>
+            </div>
+          </div>
+          <button type="button" class="module-toggle" aria-expanded="false" aria-controls="migrationPanel">Explore migration</button>
+        </div>
+        <section id="migrationPanel" class="module-panel" aria-labelledby="migrationInvestigationHeading" hidden></section>
+      </article>
+      <article class="intelligence-needs" aria-labelledby="needsHeading">
+        <div class="intelligence-preview">
+          <h2 id="needsHeading">Needs More Evidence</h2>
+          <p class="intelligence-note"><span id="needsSummary">Withheld-signal data is not included in this synthetic fixture.</span> Intentionally outside confirmed trend reporting.</p>
+          <button type="button" class="module-toggle" aria-expanded="false" aria-controls="needsPanel">Understand this category</button>
+        </div>
+        <section id="needsPanel" class="module-panel" aria-labelledby="needsInvestigationHeading" hidden></section>
+      </article>
     </section>
     <section data-workspace-view="journey-mapping" hidden class="journey-section" aria-labelledby="journeySectionHeading">
       <div class="section-heading journey-workspace-heading"><div><p class="eyebrow">Journey workspace</p><h2 id="journeySectionHeading" tabindex="-1">Journey Mapping</h2><p class="journey-subtitle">Explore the member journeys behind your biggest opportunities.</p></div>

@@ -82,8 +82,9 @@ test('results present visual intelligence before experience intelligence', () =>
     .map(section => section.className);
   assert.deepEqual(order, ['summary-section', 'visual-section', 'intelligence-section', 'feedback-section']);
   assert.equal(document.querySelector('.visual-section .eyebrow'), null);
-  assert.match(document.querySelector('.intelligence-section .eyebrow').textContent, /03/);
-  document.querySelector('#trendsHeading + p + button').click();
+  assert.equal(document.querySelector('.intelligence-section .eyebrow'), null);
+  const trendsToggle = document.querySelector('[aria-controls="trendsPanel"]');
+  trendsToggle.click();
   assert.equal(document.getElementById('trendsPanel').hidden, false);
   dom.window.close();
 });
@@ -257,7 +258,9 @@ test('demo renders compact executive modules and interactions without API calls'
     button.click(); assert.equal(button.getAttribute('aria-expanded'), 'true'); assert.equal(target.hidden, false);
     button.click(); assert.equal(button.getAttribute('aria-expanded'), 'false'); assert.equal(target.hidden, true);
   }
-  document.querySelector('#trendsHeading + p + button').click();
+  const trendsToggle = document.querySelector('[aria-controls="trendsPanel"]');
+  trendsToggle.click();
+  assert.equal(document.getElementById('trendsPanel').hidden, false);
   const all = document.querySelector('#trendsPanel .small-action');
   all.click(); assert.equal(document.getElementById('allTrends').hidden, false);
   const evidence = document.querySelector('#trendsPanel details');
@@ -481,7 +484,9 @@ test('movement, migration and phrase selections preserve their evidence basis', 
 });
 test('existing trend, emerging, journey and detailed feedback share exact record cards', () => {
   const { dom, document } = browser();
-  document.querySelector('#trendsHeading + p + button').click();
+  const trendsToggle = document.querySelector('[aria-controls="trendsPanel"]');
+  trendsToggle.click();
+  assert.equal(document.getElementById('trendsPanel').hidden, false);
   document.querySelector('#trendsPanel .evidence-action').click();
   assert.match(document.getElementById('evidenceCount').textContent, /20 of 69/);
   document.getElementById('closeEvidence').click();

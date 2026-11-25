@@ -95,13 +95,13 @@ function evidenceAction(label, title, groups) {
   return button;
 }
 const oneGroup = (ids, context) => [{ label: 'Supporting feedback', recordIds: ids, context }];
-function evidenceList(ids) {
+function evidenceList(ids, {summary, renderCard = feedbackCard} = {}) {
   const details = el('details');
-  add(details, el('summary', `Supporting evidence · ${ids.length} sample ${ids.length === 1 ? 'record' : 'records'}`));
+  add(details, summary || el('summary', `Supporting evidence · ${ids.length} sample ${ids.length === 1 ? 'record' : 'records'}`));
   details.addEventListener('toggle', () => {
     if (!details.open || details.dataset.loaded) return;
     const list = el('div', undefined, 'evidence');
-    for (const id of ids) add(list, feedbackCard(byId.get(id)));
+    for (const id of ids) add(list, renderCard(byId.get(id)));
     add(details, list); details.dataset.loaded = 'true';
   });
   return details;
@@ -262,18 +262,22 @@ function movementHighlights() {
 }
 function renderMovementSignals() {
   const target = document.getElementById('movementSignals'); target.replaceChildren();
+  const highlights = movementHighlights();
+  document.getElementById('movementMethodology').hidden = !highlights.length;
   if (!data.comparisonAvailable) {
     add(target, el('p', 'Select two nonoverlapping periods with feedback to evaluate movement.', 'row-meta')); return;
   }
-  const highlights = movementHighlights();
   if (!highlights.length) add(target, el('p', 'No increasing or decreasing trends in this comparison. Explore the descriptive states below.', 'row-meta'));
   for (const row of highlights) {
     const item = el('div', undefined, `movement-signal ${row.label.toLowerCase()}`); item.dataset.experience = row.name; item.dataset.state = row.label;
-    add(item, el('span', row.label === 'Increasing' ? 'Needs Attention' : 'Decreasing', 'signal-label'),
-      el('strong', `${row.label === 'Increasing' ? '↑' : '↓'} ${row.name}`),
-      el('span', `${row.percentageChange > 0 ? '+' : ''}${row.percentageChange.toFixed(1)}% record-count change`, 'signal-change'),
-      el('p', `${row.currentCount} current · ${row.comparisonCount} comparison records. Change is relative to this experience’s comparison-period count.`, 'row-meta'),
-      evidenceAction('Compare supporting evidence', row.name, movementGroups(row)));
+    const increasing = row.label === 'Increasing';
+    const action = evidenceAction('Compare supporting evidence', row.name, movementGroups(row));
+    action.setAttribute('aria-label', `Compare supporting evidence for ${row.name}`);
+    add(item, el('h3', increasing ? 'Strongest increase' : 'Strongest decrease', 'signal-label'),
+      el('strong', row.name),
+      el('p', `${increasing ? '+' : ''}${row.percentageChange.toFixed(1)}%`, 'signal-change'),
+      el('p', `${format(row.currentCount)} current · ${format(row.comparisonCount)} prior`, 'signal-counts'),
+      action);
     add(target, item);
   }
 }
@@ -316,26 +320,69 @@ function renderSummaryExperiences() {
     add(target, section);
   }
 }
-function makeTrendRow(trend) {
-  const row = el('li', undefined, 'data-row');
-  const heading = el('div', undefined, 'row-heading');
-  add(heading, el('h4', trend.name), el('span', `${trend.count} records`));
-  add(row, heading, el('p', `${trend.domain || 'Outside controlled taxonomy'} · ${trend.highPriorityCount} High Priority`, 'row-meta'),
-    evidenceList(trend.evidenceIds),
-    evidenceAction(`View ${trend.count} comments`, trend.name, oneGroup(trend.recordIds, currentContext() + ' · Established Trend')));
-  return row;
+function investigationPreviewRecord(record) {
+  const card = el('article', undefined, 'established-record');
+  const date = el('time', record.date);
+  date.dateTime = record.date;
+  const metadata = add(el('header'), el('h4', record.id), date);
+  const attributes = el('ul', undefined, 'established-record-attributes');
+  for (const [dimension, value] of [
+    ['sentiment', record.sentiment], ['effort', record.effort], ['priority', record.priority]
+  ]) {
+    const attribute = el('li', `${value} ${dimension}`);
+    attribute.dataset.dimension = dimension;
+    attribute.dataset.value = value;
+    add(attributes, attribute);
+  }
+  add(card, metadata,
+    el('p', `Feedback Source: ${record.source} · Experience Touchpoint: ${record.touchpoint}`, 'row-meta'),
+    el('p', record.text, 'established-record-text'), attributes);
+  if (record.trend) add(card, el('p', `Pain point: ${record.trend}`, 'row-meta'));
+  return card;
+}
+function investigationRow(trend, identity, supportingCount, context, {leading, priority} = {}) {
+  const row = el('li', undefined, 'data-row established-experience');
+  if (leading) row.classList.add('established-leading');
+  const count = add(el('p', undefined, 'established-count'), el('strong', format(supportingCount)), ' Supporting records');
+  const measures = add(el('div', undefined, 'established-measures'), count);
+  if (priority !== undefined) add(measures, el('p', `${format(priority)} high priority`, 'established-priority'));
+  const previewCount = trend.evidenceIds.length;
+  let preview = el('p', 'Supporting-record preview unavailable.', 'row-meta');
+  if (previewCount) {
+    const summary = add(el('summary'),
+      el('span', `Preview ${format(previewCount)} supporting ${previewCount === 1 ? 'record' : 'records'}`, 'established-preview-open'),
+      el('span', 'Hide supporting record preview', 'established-preview-close'));
+    preview = evidenceList(trend.evidenceIds, {summary, renderCard: investigationPreviewRecord});
+    preview.className = 'established-preview';
+  }
+  const viewAll = evidenceAction(`View all ${format(supportingCount)} supporting comments`, trend.name,
+    oneGroup(trend.recordIds, context));
+  viewAll.setAttribute('aria-label', `${viewAll.textContent} for ${trend.name}`);
+  return add(row, add(el('div', undefined, 'established-row-heading'), identity, measures), preview, viewAll);
+}
+function makeTrendRow(trend, leading = false) {
+  const identity = add(el('div'), el('h3', trend.name),
+    el('p', trend.domain || 'Outside controlled taxonomy', 'established-domain'));
+  return investigationRow(trend, identity, trend.count, currentContext() + ' · Established Trend',
+    {leading, priority: trend.highPriorityCount});
 }
 function setTrends() {
   const sorted = data.topTrends;
-  document.getElementById('trendsSummary').textContent = `${data.establishedPresence.length} established identities · ${sorted.length} with recurring selected-period evidence`;
+  document.getElementById('establishedIdentityCount').textContent = format(data.establishedPresence.length);
+  document.getElementById('establishedRecurringCount').textContent = format(sorted.length);
   const panel = document.getElementById('trendsPanel');
-  add(panel, el('p', 'Governed, stable demo themes. Rankings require two selected-period comments; identity presence includes single observations.', 'panel-intro'));
+  const heading = el('h2', 'Established Trends');
+  heading.id = 'trendsInvestigationHeading';
+  add(panel, add(el('header', undefined, 'established-investigation-header'), heading,
+    el('p', 'Governed, stable experience identities with recurring feedback evidence.'),
+    el('p', 'Rankings require two selected-period comments; identity presence includes single observations.', 'panel-intro')));
   const list = el('ol', undefined, 'data-list');
-  for (const trend of sorted.slice(0, 3)) add(list, makeTrendRow(trend));
+  for (const [index, trend] of sorted.slice(0, 3).entries()) add(list, makeTrendRow(trend, index === 0));
   add(panel, list);
   if (!sorted.length) add(panel, el('p', 'No Established Trends have recurring evidence in this period.', 'empty-state'));
   const more = el('div'); more.hidden = true;
   const moreList = el('ol', undefined, 'data-list');
+  moreList.start = 4;
   for (const trend of sorted.slice(3)) add(moreList, makeTrendRow(trend));
   add(more, moreList);
   const button = el('button', 'View all recurring experiences', 'small-action');
@@ -348,27 +395,60 @@ function setTrends() {
 function movementRow(item) {
   const row = el('li', undefined, 'data-row movement-row');
   row.dataset.movement = item.label;
-  const heading = el('div', undefined, 'row-heading');
-  add(heading, el('h4', item.name), el('span', item.label));
-  const boxes = el('div', undefined, 'mini-grid');
-  for (const [label, count, prevalence] of [['Current', item.currentCount, item.currentPrevalence], ['Comparison', item.comparisonCount, item.comparisonPrevalence]]) {
-    const box = el('div'); add(box, el('strong', `${count} records`), el('span', `${label} · ${(prevalence * 100).toFixed(1)}% prevalence`)); add(boxes, box);
+  const identity = add(el('div'), el('h3', item.name), el('span', item.label, 'movement-classification'));
+  const change = el('div', undefined, 'movement-record-change');
+  if (item.percentageChange === null) {
+    add(change, el('p', 'Percentage change unavailable without comparison observations', 'row-meta'));
+  } else {
+    const value = `${item.percentageChange > 0 ? '+' : ''}${item.percentageChange.toFixed(1)}%`;
+    add(change, el('strong', value), el('span', 'Record-count change'));
   }
-  const change = item.percentageChange === null ? 'Percentage change unavailable without comparison observations' :
-    `${item.percentageChange > 0 ? '+' : ''}${item.percentageChange.toFixed(1)}% record-count change`;
-  add(row, heading, boxes, el('p', change, 'row-meta'), evidenceAction('Compare period evidence', item.name, movementGroups(item)));
+  const measures = el('dl', undefined, 'movement-period-measures');
+  for (const [label, count, prevalence] of [
+    ['Current period', item.currentCount, item.currentPrevalence],
+    ['Comparison period', item.comparisonCount, item.comparisonPrevalence]
+  ]) {
+    const measure = add(el('div'), el('dt', label), el('dd', `${format(count)} ${count === 1 ? 'record' : 'records'}`, 'movement-period-count'),
+      el('dd', `${(prevalence * 100).toFixed(1)}% of analyzed feedback`, 'movement-period-share'));
+    add(measures, measure);
+  }
+  const action = evidenceAction('Compare period evidence', item.name, movementGroups(item));
+  action.setAttribute('aria-label', `Compare period evidence for ${item.name}`);
+  add(row, add(el('div', undefined, 'movement-row-title'), identity, change), measures, action);
   return row;
 }
 function setMovement() {
   const counts = data.movement.reduce((map, item) => { map[item.label] = (map[item.label] || 0) + 1; return map; }, {});
-  const note = data.comparisonAvailable ? `${counts.Increasing || 0} increasing · ${counts.Stable || 0} stable · ${counts.Decreasing || 0} decreasing · ${counts['New in selected comparison window'] || 0} new · ${counts['No longer observed in selected current period'] || 0} no longer observed` :
-    scope.comparison ? 'No comparison available for these periods' : 'Choose dates and enable comparison to see movement';
-  document.getElementById('movementSummary').textContent = data.comparisonAvailable ? note : 'Comparison unavailable';
+  const note = scope.comparison ? 'No comparison available for these periods' : 'Choose dates and enable comparison to see movement';
+  const summary = document.getElementById('movementSummary');
+  summary.replaceChildren();
+  if (data.comparisonAvailable) {
+    const list = el('ul', undefined, 'intelligence-movement-counts');
+    for (const [label, classification] of [
+      ['Increasing', 'Increasing'], ['Stable', 'Stable'], ['Decreasing', 'Decreasing'],
+      ['New', 'New in selected comparison window'], ['No longer observed', 'No longer observed in selected current period']
+    ]) {
+      const indicator = el('li');
+      indicator.dataset.state = classification;
+      add(list, add(indicator, el('strong', format(counts[classification] || 0)), ' ', el('span', label)));
+    }
+    add(summary, list);
+  } else {
+    add(summary, el('p', 'Comparison unavailable', 'intelligence-note'));
+  }
   renderMovementSignals();
   document.getElementById('movementPeriod').hidden = !scope.comparison;
   document.getElementById('movementPeriod').textContent = scope.comparison ? `Current: ${dateLabel(scope.current)} · Comparison: ${dateLabel(scope.comparison)}` : 'Comparison is off';
   const panel = document.getElementById('movementPanel');
-  add(panel, el('p', `Current period: ${data.periodTotals.current} records · Comparison period: ${data.periodTotals.comparison} records. Prevalence uses each period’s analyzed feedback total.`, 'panel-intro'));
+  const heading = el('h2', 'Trend Movement');
+  heading.id = 'movementInvestigationHeading';
+  const comparisonTotal = scope.comparison ?
+    `Comparison period: ${format(data.periodTotals.comparison)} analyzed records` : 'Comparison is off';
+  add(panel, add(el('header', undefined, 'movement-investigation-header'), heading,
+    el('p', 'Investigate how individual experience patterns have changed between selected periods.'),
+    add(el('div', undefined, 'movement-investigation-totals'),
+      el('span', `Current period: ${format(data.periodTotals.current)} analyzed records`), el('span', comparisonTotal)),
+    el('p', 'Percentage changes are relative to comparison-period record counts. Feedback shares use each period’s analyzed feedback total. Decreasing counts or zero observations do not establish experience improvement or resolution.', 'panel-intro')));
   if (!data.comparisonAvailable) add(panel, el('p', note + '. Select two nonoverlapping periods with feedback.', 'empty-state'));
   const list = el('ol', undefined, 'data-list');
   for (const item of data.movement) add(list, movementRow(item));
@@ -376,57 +456,107 @@ function setMovement() {
 }
 function setEmerging() {
   const panel = document.getElementById('emergingPanel');
-  document.getElementById('emergingSummary').textContent = `${data.emerging.length} provisional experiences with selected-period evidence`;
-  add(panel, el('p', 'Provisional recurring experiences from the static fixture. A single selected-period observation indicates presence only, not fresh confirmation. Nothing is promoted automatically.', 'panel-intro'));
+  document.getElementById('emergingExperienceCount').textContent = format(data.emerging.length);
+  const heading = el('h2', 'Emerging Experiences');
+  heading.id = 'emergingInvestigationHeading';
+  add(panel, add(el('header', undefined, 'established-investigation-header'), heading,
+    el('p', 'Provisional experience signals that reveal gaps in existing analytical coverage.'),
+    el('p', 'Provisional recurring experiences from the static fixture. A single selected-period observation indicates presence only, not fresh confirmation. Nothing is promoted automatically.', 'panel-intro')));
   const list = el('ul', undefined, 'data-list');
   if (!data.emerging.length) add(panel, el('p', 'No Emerging Experiences are observed in this period. Feedback remains available in Detailed Feedback.', 'empty-state'));
-  for (const candidate of data.emerging) {
-    const row = el('li', undefined, 'data-row');
-    add(row, el('span', candidate.gap, 'badge'), el('h4', candidate.name),
-      el('p', `${candidate.supportingRecordCount} supporting records · ${candidate.coverage}${candidate.count < 2 ? ' · Presence only in this period' : ''}`, 'row-meta'),
-      evidenceList(candidate.evidenceIds), evidenceAction(`View ${candidate.supportingRecordCount} comments`,
-        candidate.name, oneGroup(candidate.recordIds, currentContext() + ' · provisional experience')));
-    add(list, row);
+  for (const [index, candidate] of data.emerging.entries()) {
+    const gap = el('span', candidate.gap, 'emerging-gap');
+    gap.dataset.gap = candidate.gap;
+    // The fixture authors Specificity Gap coverage as “domain / established experience”.
+    const [coverageDomain, associated] = candidate.gap === 'Specificity Gap' ?
+      candidate.coverage.split(' / ', 2) : [candidate.coverage];
+    const identity = add(el('div'), gap, el('h3', candidate.name),
+      el('p', candidate.domain || coverageDomain, 'established-domain'));
+    if (associated) add(identity, el('p', `Associated established experience: ${associated}`, 'emerging-association'));
+    if (candidate.count < 2) add(identity, el('p', 'Presence only in this period', 'row-meta'));
+    add(list, investigationRow(candidate, identity, candidate.supportingRecordCount,
+      currentContext() + ' · provisional experience', {leading: index === 0}));
   }
   add(panel, list);
 }
 function setNeedsEvidence() {
-  document.getElementById('needsSummary').textContent = 'Withheld-signal data is not included in this synthetic fixture';
   const panel = document.getElementById('needsPanel');
-  add(panel, el('p', 'Needs More Evidence preserves signals that need stronger support before confirmed trend reporting. These signals are available for analyst review; they are not discarded feedback or confirmed trends.', 'panel-intro'),
-    el('p', 'This fixture contains no withheld-signal assignments. Its count and evidence are unavailable. General feedback without a grouped experience has not been reclassified into this category.', 'empty-state'));
+  const heading = el('h2', 'Needs More Evidence');
+  heading.id = 'needsInvestigationHeading';
+  add(panel, add(el('header'), heading,
+    el('p', 'Preserves signals that need stronger support before confirmed trend reporting.')),
+    add(el('section'), el('h3', 'Analytical purpose'),
+      el('p', 'This category retains signals for analyst review. They are not discarded feedback or confirmed trends.')),
+    add(el('section', undefined, 'needs-demo-availability'), el('h3', 'Data availability in this demo'),
+      el('p', 'This synthetic fixture contains no withheld-signal assignments. Counts and supporting evidence are unavailable.'),
+      el('p', 'General feedback without a grouped experience has not been reclassified into this category.')));
 }
 function setMigration() {
   const migration = data.migration;
-  document.getElementById('migrationSummary').textContent = `${migration.migrated} of ${migration.eligible} eligible digital-friction records include validated assisted contact · ${percent(migration.migrated, migration.eligible, 1)}`;
+  const rate = document.getElementById('intelligenceMigrationRate');
+  rate.hidden = !migration.eligible;
+  rate.textContent = percent(migration.migrated, migration.eligible, 1);
+  const indicator = document.getElementById('intelligenceMigrationIndicator');
+  indicator.hidden = !migration.eligible;
+  indicator.max = migration.eligible || 1;
+  indicator.value = migration.migrated;
+  document.getElementById('intelligenceMigrationCount').textContent = migration.eligible ?
+    `${format(migration.migrated)} of ${format(migration.eligible)} eligible digital-friction records include validated assisted contact.` :
+    'Rate unavailable without eligible digital-friction feedback.';
   const panel = document.getElementById('migrationPanel');
+  const heading = el('h2', 'Digital → Assisted Investigation');
+  heading.id = 'migrationInvestigationHeading';
+  add(panel, add(el('header', undefined, 'migration-investigation-header'), heading,
+    el('p', 'Investigate where digital friction is observed and where validated assisted contact occurs.')));
+  add(panel, add(el('dl', undefined, 'migration-investigation-totals'),
+    migrationMeasure('Eligible digital-friction records', migration.eligible),
+    migrationMeasure('Records with validated assisted contact', migration.migrated, 'migration-validated')));
+  add(panel, el('p', 'Eligible digital friction and validated assisted-service contact are recorded in the same synthetic comment. Records with validated assisted contact are a subset of eligible digital-friction records. Digital origins include Mobile App, Online Banking, Public Website and ATM. Card / Point of Sale is excluded. This is not a causal or population-wide migration measure.', 'panel-intro'));
   if (!migration.eligible) add(panel, el('p', 'No eligible digital-friction evidence in this period; a rate is unavailable.', 'empty-state'));
   else if (!migration.migrated) add(panel, el('p', 'No validated assisted contact observed among selected eligible records.', 'empty-state'));
-  const boxes = el('div', undefined, 'mini-grid');
-  for (const [value, label] of [[migration.eligible, 'Eligible digital-friction records'], [migration.migrated, 'Migrated records']]) {
-    const box = el('div'); add(box, el('strong', value), el('span', label)); add(boxes, box);
+
+  const origins = el('ul', undefined, 'data-list');
+  for (const row of migration.origins) {
+    const action = evidenceAction(`View ${format(row.eligible)} eligible records`, `${row.name} digital origin`, [
+      { label: 'Eligible', recordIds: row.eligibleRecordIds, context: currentContext() + ' · eligible digital friction' },
+      { label: 'Migrated', recordIds: row.migratedRecordIds, context: currentContext() + ' · validated assisted contact' }
+    ]);
+    action.setAttribute('aria-label', `${action.textContent} for ${row.name}`);
+    add(origins, add(el('li', undefined, 'data-row migration-investigation-row'), el('h4', row.name),
+      add(el('dl', undefined, 'migration-origin-measures'), migrationMeasure('Eligible records', row.eligible),
+        migrationMeasure('Migrated records', row.migrated, 'migration-validated')), action));
   }
-  add(panel, boxes, el('p', 'Eligible digital friction → validated assisted-service contact within the same synthetic comment. Digital origins include Mobile App, Online Banking, Public Website and ATM; Card / Point of Sale is excluded. This is not a causal or population-wide migration measure.', 'panel-intro'));
-  const breakdown = el('div', undefined, 'breakdown');
-  for (const [heading, rows, render] of [
-    ['Origin touchpoint', migration.origins, row => `${row.name}: ${row.eligible} eligible · ${row.migrated} migrated`],
-    ['Assisted destination', migration.destinations, row => `${row.name}: ${row.migrated} migrated`]
-  ]) {
-    const section = el('section'); add(section, el('h4', heading));
-    for (const row of rows) {
-      add(section, el('p', render(row)));
-      if (row.eligibleRecordIds) add(section, evidenceAction(`View ${row.eligible} eligible records`, `${row.name} digital origin`, [
-        { label: 'Eligible', recordIds: row.eligibleRecordIds, context: currentContext() + ' · eligible digital friction' },
-        { label: 'Migrated', recordIds: row.migratedRecordIds, context: currentContext() + ' · validated assisted contact' }
-      ]));
-      else add(section, evidenceAction(`View ${row.migrated} migrated comments`, `${row.name} assisted destination`,
-        oneGroup(row.recordIds, currentContext() + ' · validated assisted contact')));
+  add(panel, add(el('section', undefined, 'migration-investigation-origins'),
+    el('h3', 'Digital-friction origins'), el('p', 'Investigate eligible and migrated feedback by originating touchpoint.', 'panel-intro'), origins));
+
+  const destinations = el('ul', undefined, 'data-list');
+  for (const row of migration.destinations) {
+    const action = evidenceAction(`View ${format(row.migrated)} migrated comments`, `${row.name} assisted destination`,
+      oneGroup(row.recordIds, currentContext() + ' · validated assisted contact'));
+    action.setAttribute('aria-label', `${action.textContent} for ${row.name}`);
+    add(destinations, add(el('li', undefined, 'data-row migration-investigation-row'), el('h4', row.name),
+      add(el('dl'), migrationMeasure('Migrated records', row.migrated, 'migration-validated')), action));
+  }
+  add(panel, add(el('section', undefined, 'migration-investigation-destinations'),
+    el('h3', 'Assisted destinations'), el('p', 'Where feedback records document validated assisted contact.', 'panel-intro'), destinations));
+
+  const associated = add(el('section', undefined, 'migration-investigation-experiences'),
+    el('h3', 'Experiences associated with assisted contact'),
+    el('p', 'Up to three recorded experience identities with the most records containing validated assisted contact.', 'panel-intro'));
+  if (migration.drivers.length) {
+    const list = el('ul', undefined, 'data-list');
+    for (const item of migration.drivers) {
+      add(list, add(el('li', undefined, 'data-row migration-investigation-row'), el('h4', item.name),
+        add(el('dl'), migrationMeasure('Records', item.migrated))));
     }
-    add(breakdown, section);
-  }
-  add(panel, breakdown);
-  add(panel, el('h4', 'Leading migration drivers'), el('p', migration.drivers.map(item => `${item.name} (${item.migrated})`).join(' · '), 'row-meta'));
+    add(associated, list);
+  } else add(associated, el('p', 'No associated experience identities in the selected feedback.', 'row-meta'));
+  add(panel, associated);
 }
+function migrationMeasure(label, value, className) {
+  return add(el('div', undefined, className), el('dt', label), el('dd', format(value)));
+}
+
 function showJourney(journey, target) {
   target.replaceChildren();
   add(target, el('h4', journey.name), el('p', `${journey.supportingRecordCount} selected-period synthetic records. These are evidenced friction themes within a journey, not a reconstructed individual sequence. No owner or outcome is inferred.`, 'panel-intro'));
@@ -1070,7 +1200,11 @@ function activateWorkspace(key, focus = true) {
   const isJourney = key === 'journey-mapping';
   const workspaceDates = document.getElementById('workspaceDates');
   workspaceDates.hidden = isJourney;
-  const dateSlots = { 'executive-summary': 'executiveDateSlot', 'visual-intelligence': 'visualDateSlot' };
+  const dateSlots = {
+    'executive-summary': 'executiveDateSlot',
+    'visual-intelligence': 'visualDateSlot',
+    'experience-intelligence': 'intelligenceDateSlot'
+  };
   const dateHome = document.getElementById(dateSlots[key] || 'workspaceDateHome');
   if (workspaceDates.parentElement !== dateHome) dateHome.append(workspaceDates);
   document.getElementById(isJourney ? 'journeyDateSlot' : 'workspaceDateSlot').append(dateControls);
@@ -1135,6 +1269,10 @@ function refreshPeriod() {
   if (!document.getElementById('feedbackPanel').hidden) { showFeedback(); document.getElementById('feedbackPanel').dataset.loaded = 'true'; }
   document.getElementById('activePeriod').textContent = dateLabel(scope.current);
   document.getElementById('workspacePeriod').textContent = dateLabel(scope.current);
+  document.getElementById('intelligenceCurrentPeriod').textContent =
+    `Current: ${dateLabel(scope.current)} · ${format(data.periodTotals.current)} analyzed`;
+  document.getElementById('intelligencePreviousPeriod').textContent = scope.comparison ?
+    `Previous: ${dateLabel(scope.comparison)} · ${format(data.periodTotals.comparison)} analyzed` : 'Comparison is off';
   if (document.getElementById('languageCanvas').dataset.loaded) renderLanguageWorkspace();
   renderSummaryExperiences();
   document.getElementById('activeTotal').textContent = `${format(records.length)} analyzed feedback records`;

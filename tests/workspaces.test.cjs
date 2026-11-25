@@ -90,3 +90,84 @@ test('Summary previews reuse existing ranked populations and the skip link prese
   assert.deepEqual([...preview[1].querySelectorAll('.summary-experience strong')].map(n=>n.textContent),['Transfer Recipient Setup Failure','Biometric Authentication Failure','Financial Wellness Coaching Handoff']);
   nav('about');const hash=dom.window.location.hash;d.querySelector('.skip-link').click();assert.equal(dom.window.location.hash,hash);assert.equal(d.activeElement.id,'main');assert.equal(d.querySelector('[data-workspace-view="about"]').hidden,false);dom.window.close();
 });
+
+test('Experience Intelligence uses the shared date form and retains inline investigation state through history', async () => {
+  const {dom,d,nav,visible,change} = app();
+  const form = d.getElementById('periodForm');
+  const report = d.getElementById('downloadReportButton');
+  const executive = d.querySelector('[data-workspace-view="executive-summary"]');
+  const visual = d.querySelector('[data-workspace-view="visual-intelligence"]');
+
+  nav('experience-intelligence');
+  assert.equal(d.activeElement.id, 'intelligenceHeading');
+  assert.equal(d.querySelector('#intelligenceDateSlot #periodForm'), form);
+  const dateAction = d.querySelector('#workspaceDates > summary');
+  assert.equal(dateAction.querySelector('.journey-date-action').textContent, 'Change dates');
+  dateAction.click();
+  assert.equal(d.getElementById('workspaceDates').open, true);
+  change('periodPreset','q3');
+  d.getElementById('compareEnabled').checked = true;
+  change('comparisonPreset','q2');
+  form.dispatchEvent(new dom.window.Event('submit', {cancelable:true}));
+  assert.match(d.getElementById('intelligenceCurrentPeriod').textContent, /2026-07-01 – 2026-09-30 · 640 analyzed/);
+  assert.match(d.getElementById('intelligencePreviousPeriod').textContent, /2026-04-01 – 2026-06-30 · 560 analyzed/);
+
+  const toggle = d.querySelector('[aria-controls="emergingPanel"]');
+  const establishedToggle = d.querySelector('[aria-controls="trendsPanel"]');
+  const established = d.getElementById('trendsPanel');
+  const coverage = d.querySelector('.intelligence-coverage');
+  const movement = d.querySelector('.intelligence-movement');
+  assert.deepEqual([...coverage.children].map(node => node.id || node.getAttribute('aria-labelledby')),
+    ['trendsHeading', 'emergingHeading', 'trendsPanel', 'emergingPanel']);
+  assert.equal(coverage.nextElementSibling, movement);
+  const movementToggle = d.querySelector('[aria-controls="movementPanel"]');
+  const movementPanel = d.getElementById('movementPanel');
+  movementToggle.click();
+  const migrationToggle = d.querySelector('[aria-controls="migrationPanel"]');
+  migrationToggle.click();
+  assert.equal(movementPanel.hidden, false);
+  assert.equal(established.hidden, true);
+  const length = dom.window.history.length;
+  establishedToggle.click();
+  toggle.click();
+  assert.equal(established.hidden, false);
+  assert.equal(establishedToggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(dom.window.history.length, length);
+  const panel = d.getElementById('emergingPanel');
+  const firstRow = panel.querySelector('.data-row');
+  assert.ok(firstRow);
+
+  nav('visual-intelligence');
+  assert.equal(d.querySelector('#visualDateSlot #periodForm'), form);
+  assert.equal(visual.querySelectorAll('[data-visual]').length, 5);
+  assert.equal(visual.querySelector('.intelligence-preview'), null);
+
+  const travel = direction => new Promise(resolve => {
+    dom.window.addEventListener('popstate', () => setTimeout(resolve, 0), {once:true});
+    dom.window.history[direction]();
+  });
+  await travel('back');
+  assert.deepEqual(visible(), ['experience-intelligence']);
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(panel.hidden, false);
+  assert.equal(panel.querySelector('.data-row'), firstRow);
+  assert.equal(movementToggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(migrationToggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(d.getElementById('migrationPanel').hidden, false);
+  assert.equal(movementPanel.hidden, false);
+  assert.equal(establishedToggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(established.hidden, false);
+  establishedToggle.click();
+  assert.equal(established.hidden, true);
+  assert.equal(panel.hidden, false);
+  assert.equal(d.querySelector('#intelligenceDateSlot #periodForm'), form);
+  assert.equal(d.getElementById('workspaceDates').open, true);
+  await travel('forward');
+  assert.deepEqual(visible(), ['visual-intelligence']);
+
+  nav('executive-summary');
+  assert.equal(executive.querySelector('#executiveDateSlot #periodForm'), form);
+  assert.equal(executive.querySelector('.intelligence-preview'), null);
+  assert.equal(d.getElementById('downloadReportButton'), report);
+  dom.window.close();
+});
